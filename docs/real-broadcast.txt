@@ -1,0 +1,172 @@
+﻿agentfence — REAL Sepolia broadcast (testnet run)
+date: 2026-11-10 (Windows, PowerShell; broadcast 09:28 UTC)
+command (key file path is outside the repo; no key material in this file):
+  $env:AGENT_FCK_KEY_FILE='C:\Users\HP\.near-credentials\agentfence-agent-fck-evm.txt'
+  node scripts\evm\send.mjs agentfence-contract-evm-0b497ae1.testnet agentfence-agent-9a9635f2.testnet "evm:0x1111111111111111111111111111111111111111" 1000000000000000
+(no --no-broadcast: broadcast included)
+
+=== send.mjs full output (stdout+stderr, verbatim) ===
+derived address: 0x44c8f698d9C2711925Af1Df0b9BB3d4b62E8ea57
+path: evm-sepolia-agentfence-agent-9a9635f2.testnet
+nonce: 0
+fees: max_fee_per_gas=1000000000 max_priority=100000000 gas=21000
+tx args: {"destination":"evm:0x1111111111111111111111111111111111111111","amount":"1000000000000000","nonce":0,"max_fee_per_gas":"1000000000","max_priority_fee_per_gas":"100000000","gas_limit":21000}
+preview_payload (view)...
+preview_payload: ebb52d50755d6655d33e69c416e3b376e9f49523d15ab5a5d1b037f06c4abb61
+request_spend (400 TeraGas, 0 deposit, FCK only)...
+request_spend outcome: {
+  "decision": "Allowed",
+  "reason": null,
+  "signature": {
+    "big_r": {
+      "affine_point": "03fc2d77957ec8839ff15c900121a5e0ecb2c874775dd43c3a04dc77a69625ca99"
+    },
+    "s": {
+      "scalar": "2d38b3e1e18507acb34b26885290af9f66fa3e010f671409ebc3d8767499d33c"
+    },
+    "recovery_id": 1
+  },
+  "payload_hash": "ebb52d50755d6655d33e69c416e3b376e9f49523d15ab5a5d1b037f06c4abb61",
+  "unsigned_tx": "02f183aa36a7808405f5e100843b9aca0082520894111111111111111111111111111111111111111187038d7ea4c6800080c0"
+}
+payload_hash matches preview: ebb52d50755d6655d33e69c416e3b376e9f49523d15ab5a5d1b037f06c4abb61
+signature: r=0xfc2d77957ec8839ff15c900121a5e0ecb2c874775dd43c3a04dc77a69625ca99 s=0x2d38b3e1e18507acb34b26885290af9f66fa3e010f671409ebc3d8767499d33c yParity=1 (low-s normalization not needed)
+signed tx: 0x02f87483aa36a7808405f5e100843b9aca0082520894111111111111111111111111111111111111111187038d7ea4c6800080c001a0fc2d77957ec8839ff15c900121a5e0ecb2c874775dd43c3a04dc77a69625ca99a02d38b3e1e18507acb34b26885290af9f66fa3e010f671409ebc3d8767499d33c
+recovered signer: 0x44c8f698d9C2711925Af1Df0b9BB3d4b62E8ea57
+derived address: 0x44c8f698d9C2711925Af1Df0b9BB3d4b62E8ea57
+signer matches derived address.
+tx hash: 0x388bc60903b143229dfdd9b3000c10b0a051d3a61668e340aaa7d45799608126
+etherscan: https://sepolia.etherscan.io/tx/0x388bc60903b143229dfdd9b3000c10b0a051d3a61668e340aaa7d45799608126
+status: success (block 12103743)
+destination balance: 9944426631806992427 -> 9945426631806992427 (delta 1000000000000000)
+audit log:
+[
+  {
+    id: 0,
+    timestamp: 1794119277002329300,
+    agent_id: 'agentfence-agent-9a9635f2.testnet',
+    destination: 'evm:0x1111111111111111111111111111111111111111',
+    amount: '50',
+    decision: 'Allowed',
+    reason: null
+  },
+  {
+    id: 1,
+    timestamp: 1794119296156116700,
+    agent_id: 'agentfence-agent-9a9635f2.testnet',
+    destination: 'evm:0x1111111111111111111111111111111111111111',
+    amount: '50',
+    decision: 'Allowed',
+    reason: null
+  },
+  {
+    id: 2,
+    timestamp: 1794119323900402000,
+    agent_id: 'agentfence-agent-9a9635f2.testnet',
+    destination: 'evm:0x1111111111111111111111111111111111111111',
+    amount: '10',
+    decision: 'Blocked',
+    reason: 'fee exceeds max_fee_cap'
+  },
+  {
+    id: 3,
+    timestamp: 1794119343111856000,
+    agent_id: 'agentfence-agent-9a9635f2.testnet',
+    destination: 'evm:0x1111111111111111111111111111111111111111',
+    amount: '10',
+    decision: 'Blocked',
+    reason: 'fee exceeds max_fee_cap'
+  },
+  {
+    id: 4,
+    timestamp: 1794120279607313000,
+    agent_id: 'agentfence-agent-9a9635f2.testnet',
+    destination: 'evm:0x1111111111111111111111111111111111111111',
+    amount: '1000000000000000',
+    decision: 'Allowed',
+    reason: null
+  },
+  {
+    id: 5,
+    timestamp: 1794120315249655600,
+    agent_id: 'agentfence-agent-9a9635f2.testnet',
+    destination: 'evm:0x1111111111111111111111111111111111111111',
+    amount: '1000000000000000',
+    decision: 'Allowed',
+    reason: null
+  },
+  {
+    id: 6,
+    timestamp: 1794120335260021800,
+    agent_id: 'agentfence-agent-9a9635f2.testnet',
+    destination: 'evm:0x1111111111111111111111111111111111111111',
+    amount: '1000000000000000',
+    decision: 'Allowed',
+    reason: null
+  },
+  {
+    id: 7,
+    timestamp: 1794120357138551600,
+    agent_id: 'agentfence-agent-9a9635f2.testnet',
+    destination: 'evm:0x1111111111111111111111111111111111111111',
+    amount: '1000000000000000',
+    decision: 'Allowed',
+    reason: null
+  },
+  {
+    id: 8,
+    timestamp: 1794122178667347500,
+    agent_id: 'agentfence-agent-9a9635f2.testnet',
+    destination: 'evm:0x1111111111111111111111111111111111111111',
+    amount: '1000000000000000',
+    decision: 'Allowed',
+    reason: null
+  },
+  {
+    id: 9,
+    timestamp: 1794122210783663900,
+    agent_id: 'agentfence-agent-9a9635f2.testnet',
+    destination: 'evm:0x1111111111111111111111111111111111111111',
+    amount: '1000000000000000',
+    decision: 'Allowed',
+    reason: null
+  }
+]
+get_spent_today:
+1000000000000000
+
+
+=== follow-up view: get_audit_log — paged to the tail (no length view exists:
+from_index 0/10/20 -> 20 rows shown, from_index 26 -> 1 row, from_index 27 -> [])
+This run's entry (newest in the log, id 26) ===
+[
+  {
+    "agent_id": "agentfence-agent-9a9635f2.testnet",
+    "amount": "1000000000000000",
+    "decision": "Allowed",
+    "destination": "evm:0x1111111111111111111111111111111111111111",
+    "id": 26,
+    "reason": null,
+    "timestamp": 1794302886102950384
+  }
+]
+id 26 human-readable: 2026-11-10 09:28:06 UTC (14:58:06 local, UTC+5:30),
+18 seconds before the tx landed in block 12103743 at 09:28:24 UTC
+(eth_getBlockByNumber timestamp 1794302904). Only entry from today; every
+earlier entry is 8 Nov.
+
+CORRECTION: an earlier version of this file showed id 13
+(timestamp 1794122271283211838 = 2026-11-08 07:17:51 UTC) because a fixed
+window {"from_index":9,"limit":5} was mistaken for the end of the log;
+id 13 is an earlier run from 8 Nov, not this broadcast.
+
+=== follow-up view: get_spent_today {"agent_id":"agentfence-agent-9a9635f2.testnet"} ===
+"1000000000000000"
+
+=== checks ===
+payload_hash == preview_payload: ebb52d50755d6655d33e69c416e3b376e9f49523d15ab5a5d1b037f06c4abb61
+recovered signer == derived address: 0x44c8f698d9C2711925Af1Df0b9BB3d4b62E8ea57
+tx: https://sepolia.etherscan.io/tx/0x388bc60903b143229dfdd9b3000c10b0a051d3a61668e340aaa7d45799608126
+receipt status: success (block 12103743)
+destination balance delta: +1000000000000000 wei (0.001 ETH)
+note: one code fix was needed in scripts/evm/send.mjs (Math.max on BigInt fees); contract unchanged.
