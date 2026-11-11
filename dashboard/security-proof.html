@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Security proof — AgentFence</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* ── Design tokens ─────────────────────────────────────────────── */
+  :root {
+    --bg:          #0f1419;
+    --card:        #1a2230;
+    --card-border: #2d333b;
+    --text:        #e6edf3;
+    --muted:       #8b949e;
+    --green:       #3fb950;
+    --red:         #f85149;
+    --accent:      #58a6ff;
+    --radius:      14px;
+    --radius-sm:   8px;
+    --gap:         16px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+  a { color: var(--accent); }
+  code { word-break: break-all; }
+
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 28px 20px 72px; }
+
+  /* ── Nav ──────────────────────────────────────────────────────── */
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 32px;
+    align-items: center;
+  }
+  .nav-brand {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-right: 8px;
+  }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.92rem;
+    letter-spacing: 0.01em;
+    transition: color 0.15s;
+  }
+  nav a:hover { color: var(--text); }
+  nav a.current {
+    color: var(--text);
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 1px;
+  }
+  nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+  /* ── Hero ─────────────────────────────────────────────────────── */
+  .hero { margin-bottom: 28px; }
+  .hero h1 { margin: 0 0 6px; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+  .hero p  { margin: 0; color: var(--muted); font-size: 1.05rem; }
+
+  /* ── Card ─────────────────────────────────────────────────────── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    margin-bottom: var(--gap);
+  }
+  .card h2 {
+    margin: 0 0 14px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .card h3 {
+    margin: 20px 0 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .card h3:first-of-type { margin-top: 0; }
+
+  /* ── Badge ───────────────────────────────────────────────────── */
+  .badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .badge.green { background: rgba(63,185,80,.18); color: var(--green); border: 1px solid rgba(63,185,80,.35); }
+  .badge.red   { background: rgba(248,81,73,.18); color: var(--red);   border: 1px solid rgba(248,81,73,.35); }
+
+  /* ── Code / pre ──────────────────────────────────────────────── */
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-size: 0.83rem;
+    margin: 6px 0 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  pre.err { border-color: rgba(248,81,73,.4); color: var(--red); }
+  .muted  { color: var(--muted); }
+
+  @media (max-width: 375px) {
+    .hero h1 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav aria-label="Main">
+    <a href="index.html" class="nav-brand">AgentFence</a>
+    <a href="index.html">Try it</a>
+    <a href="live.html">Live log</a>
+    <a href="how-it-works.html">How it works</a>
+    <a href="security-proof.html" class="current">Security proof</a>
+    <a href="developers.html">Developers</a>
+  </nav>
+
+  <header class="hero">
+    <h1>Security proof</h1>
+    <p>The scoped function-call key, tested against the live contract.</p>
+  </header>
+
+<section class="card">
+  <h2>Four calls the key cannot make</h2>
+  <p class="muted">Contract: <code>agentfence-contract-evm-0b497ae1.testnet</code>.
+  Key used for all four (read from its key file, never printed): the function-call
+  public key <code>ed25519:FnXYf8ppxE6drTWz9Sxbh9XmnPFi2vKikQfzHc7vamDS</code>,
+  granted on the agent account with receiver
+  <code>agentfence-contract-evm-0b497ae1.testnet</code> and
+  <code>method_names: ["request_spend"]</code> only (verified with
+  <code>view_access_key_list</code>). Refused on 2026-11-10; no state changed
+  (policy, <code>get_spent_today</code> and the audit tail were identical
+  before and after).</p>
+
+  <h3>set_policy — refused</h3>
+  <pre class="mono">near contract call-function as-transaction agentfence-contract-evm-0b497ae1.testnet set_policy \
+  file-args ./set_policy.json prepaid-gas '100 TeraGas' attached-deposit '0 NEAR' \
+  sign-as agentfence-agent-9a9635f2.testnet network-config testnet \
+  sign-with-plaintext-private-key &lt;PRIVATE_KEY&gt; send</pre>
+  <pre class="mono err">Error: 
+   0: Error: Transaction method name &lt;set_policy&gt; isn't allowed by the access key.
+Location:
+   src\transaction_signature_options\send\mod.rs:185</pre>
+
+  <h3>set_paused — refused</h3>
+  <pre class="mono">near contract call-function as-transaction agentfence-contract-evm-0b497ae1.testnet set_paused \
+  file-args ./pause.json prepaid-gas '100 TeraGas' attached-deposit '0 NEAR' \
+  sign-as agentfence-agent-9a9635f2.testnet network-config testnet \
+  sign-with-plaintext-private-key &lt;PRIVATE_KEY&gt; send</pre>
+  <pre class="mono err">Error: 
+   0: Error: Transaction method name &lt;set_paused&gt; isn't allowed by the access key.
+Location:
+   src\transaction_signature_options\send\mod.rs:185</pre>
+
+  <h3>Direct MPC call (v1.signer-prod.testnet.sign) — refused</h3>
+  <pre class="mono">near contract call-function as-transaction v1.signer-prod.testnet sign \
+  file-args ./sign_args.json prepaid-gas '300 TeraGas' attached-deposit '0 NEAR' \
+  sign-as agentfence-agent-9a9635f2.testnet network-config testnet \
+  sign-with-plaintext-private-key &lt;PRIVATE_KEY&gt; send</pre>
+  <pre class="mono err">Error: 
+   0: Error: Transaction for &lt;v1.signer-prod.testnet&gt; doesn't match the access key for 
+&lt;agentfence-contract-evm-0b497ae1.testnet&gt;.
+Location:
+   src\transaction_signature_options\send\mod.rs:185</pre>
+  <p class="muted">Run with <code>attached-deposit '0 NEAR'</code> so the receiver
+  check is the one that fires; the key's receiver is the AgentFence contract, not
+  the MPC contract, so a direct MPC call can never match it.</p>
+
+  <h3>request_spend with an attached deposit (0.1 NEAR) — refused</h3>
+  <pre class="mono">near contract call-function as-transaction agentfence-contract-evm-0b497ae1.testnet request_spend \
+  file-args ./spend-deposit.json prepaid-gas '100 TeraGas' attached-deposit '0.1 NEAR' \
+  sign-as agentfence-agent-9a9635f2.testnet network-config testnet \
+  sign-with-plaintext-private-key &lt;PRIVATE_KEY&gt; send</pre>
+  <pre class="mono err">Error: 
+   0: Error: Having a deposit with a function call action is not allowed with a function call access key.
+Location:
+   src\transaction_signature_options\send\mod.rs:185</pre>
+</section>
+
+<section class="card">
+  <h2>Two things the key CAN do: ask, and be answered by policy</h2>
+
+  <span class="badge green">Allowed</span>
+  <pre class="mono">request_spend("evm:0x1111…1111", 1000000000000000) → Allowed + MPC signature (audit id 26 — today's broadcast, signed with the FCK)
+
+<span class="muted">audit entry:</span>
+{
+  "agent_id": "agentfence-agent-9a9635f2.testnet",
+  "amount": "1000000000000000",
+  "decision": "Allowed",
+  "destination": "evm:0x1111111111111111111111111111111111111111",
+  "id": 26,
+  "reason": null,
+  "timestamp": 1794302886102950384
+}</pre>
+
+  <span class="badge red">Blocked</span>
+  <pre class="mono">request_spend("evm:0x1111…1111", 5000000000000000000) → Blocked ("exceeds per_tx_limit")
+
+<span class="muted">audit entry:</span>
+{
+  "agent_id": "agentfence-agent-9a9635f2.testnet",
+  "amount": "5000000000000000000",
+  "decision": "Blocked",
+  "destination": "evm:0x1111111111111111111111111111111111111111",
+  "id": 11,
+  "reason": "exceeds per_tx_limit",
+  "timestamp": 1794122224683445721
+}</pre>
+
+  <p class="muted" style="margin-top:14px;">Both entries read from
+  <code>agentfence-contract-evm-0b497ae1.testnet</code> with
+  <code>get_audit_log</code> (<code>per_tx_limit</code> is
+  <code>10000000000000000</code>, so 500 passes and 5 ETH is refused).
+  Reproduce with <code>scripts/testnet-demo.md</code>.</p>
+</section>
+
+</div>
+
+<script src="config.js"></script>
+</body>
+</html>

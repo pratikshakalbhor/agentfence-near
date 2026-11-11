@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AgentFence — Try it</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Landing page: live stat cards + a checks playground.
+  Serve: npx serve dashboard. Shared config: dashboard/config.js.
+-->
+<style>
+  /* ── Design tokens ─────────────────────────────────────────────── */
+  :root {
+    /* Background & surface */
+    --bg:          #0f1419;
+    --card:        #1a2230;
+    --card-border: #2d333b;
+
+    /* Text */
+    --text:        #e6edf3;
+    --muted:       #8b949e;
+
+    /* Semantic */
+    --green:       #3fb950;
+    --red:         #f85149;
+
+    /* Single accent */
+    --accent:      #58a6ff;
+
+    /* Glassmorphism (result card only) */
+    --glass-bg:    rgba(26, 34, 48, 0.55);
+    --glass-border:rgba(255, 255, 255, 0.10);
+    --glass-blur:  16px;
+
+    /* Geometry */
+    --radius:      14px;
+    --radius-sm:   8px;
+
+    /* Spacing */
+    --gap:         16px;
+  }
+
+  /* ── Reset & base ─────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+  a { color: var(--accent); }
+  code { word-break: break-all; }
+
+  /* ── Layout wrapper ───────────────────────────────────────────── */
+  .wrap {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 28px 20px 72px;
+  }
+
+  /* ── Nav ──────────────────────────────────────────────────────── */
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 32px;
+    align-items: center;
+  }
+  .nav-brand {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-right: 8px;
+  }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.92rem;
+    letter-spacing: 0.01em;
+    transition: color 0.15s;
+  }
+  nav a:hover { color: var(--text); }
+  nav a.current {
+    color: var(--text);
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 1px;
+  }
+  nav a:focus-visible,
+  button:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  /* ── Hero header ──────────────────────────────────────────────── */
+  .hero {
+    margin-bottom: 28px;
+  }
+  .hero h1 {
+    margin: 0 0 6px;
+    font-size: 2.2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+  .hero p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 1.05rem;
+  }
+
+  /* ── Card base ────────────────────────────────────────────────── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+  }
+  .card h2 {
+    margin: 0 0 14px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  /* ── Bento grid ───────────────────────────────────────────────── */
+  /*
+    Row 1: [Playground — spans 2 col] [Status] [Spend]
+    Row 2: [Playground cont.]          [Policy] [EVM]
+    Row 3: [Start here guide — full width]
+    Row 4: [Last 3 decisions — full width]
+
+    We use named areas for clarity.
+  */
+  .bento {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto;
+    gap: var(--gap);
+    margin-bottom: var(--gap);
+  }
+
+  .bento-playground { grid-column: 1 / 3; grid-row: 1 / 3; }
+  .bento-status     { grid-column: 3;     grid-row: 1; }
+  .bento-spend      { grid-column: 3;     grid-row: 2; }
+  .bento-policy     { grid-column: 1;     grid-row: 3; }
+  .bento-evm        { grid-column: 2 / 4; grid-row: 3; }
+  .bento-steps      { grid-column: 1 / 4; grid-row: 4; }
+  .bento-decisions  { grid-column: 1 / 4; grid-row: 5; }
+
+  /* ── Stat values ──────────────────────────────────────────────── */
+  .big {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.1;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .muted { color: var(--muted); font-size: 0.88rem; }
+  .err   { color: var(--red); }
+
+  /* ── Badge ────────────────────────────────────────────────────── */
+  .badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .badge.active  { background: rgba(63,185,80,.18); color: var(--green); border: 1px solid rgba(63,185,80,.35); }
+  .badge.paused  { background: rgba(248,81,73,.18); color: var(--red);   border: 1px solid rgba(248,81,73,.35); }
+  .badge.green   { background: rgba(63,185,80,.18); color: var(--green); border: 1px solid rgba(63,185,80,.35); }
+  .badge.red     { background: rgba(248,81,73,.18); color: var(--red);   border: 1px solid rgba(248,81,73,.35); }
+
+  /* ── Spend bar ────────────────────────────────────────────────── */
+  .bar {
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 10px 0 6px;
+  }
+  .bar > div {
+    height: 100%;
+    background: var(--green);
+    width: 0%;
+    border-radius: 999px;
+    transition: width 0.4s ease;
+  }
+
+  /* ── Steps guide ──────────────────────────────────────────────── */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .step {
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    font-size: 0.9rem;
+  }
+  .step b {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  /* ── Playground form ──────────────────────────────────────────── */
+  .scenarios {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .scenarios button {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--card-border);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .scenarios button:hover { background: rgba(255,255,255,0.09); }
+  .scenarios button[aria-pressed="true"] {
+    background: rgba(88,166,255,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  form { display: grid; gap: 12px; }
+  label {
+    display: grid;
+    gap: 5px;
+    font-size: 0.88rem;
+    color: var(--muted);
+  }
+  input {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--card-border);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+  input:focus { border-color: var(--accent); outline: none; }
+  .btn-primary {
+    background: var(--accent);
+    color: #0f1419;
+    border: 0;
+    border-radius: var(--radius-sm);
+    padding: 11px 20px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    align-self: start;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  /* ── Check list ───────────────────────────────────────────────── */
+  .checks {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 7px;
+  }
+  .checks li { display: flex; gap: 10px; align-items: baseline; font-size: 0.92rem; }
+  .checks li .icon { min-width: 1.2em; text-align: center; }
+  .warns { color: var(--muted); font-size: 0.83rem; margin: 6px 0 0; }
+
+  /* ── Result card — GLASSMORPHISM only here ────────────────────── */
+  .result {
+    display: none;
+    border-radius: var(--radius-sm);
+    padding: 16px 18px;
+    margin-top: 14px;
+
+    /* Glass effect */
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+
+    /* Fallback for browsers without backdrop-filter */
+  }
+  @supports not (backdrop-filter: blur(1px)) {
+    .result { background: #1e2d42; }
+  }
+  .result.ok  { border-color: rgba(63,185,80,.4); }
+  .result.bad { border-color: rgba(248,81,73,.4); }
+
+  .result .sim {
+    font-size: 0.78rem;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .result .verdict {
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+  .result.ok  .verdict { color: var(--green); }
+  .result.bad .verdict { color: var(--red); }
+
+  /* ── Last decisions mini-log ──────────────────────────────────── */
+  .decisions-list {
+    display: grid;
+    gap: 8px;
+  }
+  .decision-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.88rem;
+    padding: 10px 12px;
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+  }
+  .decision-row .dr-time { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+  .decision-row .dr-addr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .decision-row .dr-amt  { white-space: nowrap; }
+
+  /* ── EVM address card ─────────────────────────────────────────── */
+  .evm-addr {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+    word-break: break-all;
+  }
+
+  /* ── Updated timestamp ────────────────────────────────────────── */
+  .updated {
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-align: right;
+    margin-top: 6px;
+  }
+
+  /* ── Reduced motion ───────────────────────────────────────────── */
+  @media (prefers-reduced-motion: reduce) {
+    .bar > div { transition: none; }
+    .btn-primary,
+    .scenarios button,
+    input { transition: none; }
+  }
+
+  /* ── Responsive: tablet (≤ 700px) ────────────────────────────── */
+  @media (max-width: 700px) {
+    .bento {
+      grid-template-columns: 1fr 1fr;
+    }
+    .bento-playground { grid-column: 1 / 3; grid-row: 1; }
+    .bento-status     { grid-column: 1;     grid-row: 2; }
+    .bento-spend      { grid-column: 2;     grid-row: 2; }
+    .bento-policy     { grid-column: 1;     grid-row: 3; }
+    .bento-evm        { grid-column: 2;     grid-row: 3; }
+    .bento-steps      { grid-column: 1 / 3; grid-row: 4; }
+    .bento-decisions  { grid-column: 1 / 3; grid-row: 5; }
+    .steps { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 1.75rem; }
+  }
+
+  /* ── Responsive: mobile (≤ 440px) ────────────────────────────── */
+  @media (max-width: 440px) {
+    .bento {
+      grid-template-columns: 1fr;
+    }
+    .bento-playground,
+    .bento-status,
+    .bento-spend,
+    .bento-policy,
+    .bento-evm,
+    .bento-steps,
+    .bento-decisions {
+      grid-column: 1;
+      grid-row: auto;
+    }
+    .hero h1 { font-size: 1.5rem; }
+    .wrap { padding: 20px 14px 60px; }
+  }
+
+  @media (max-width: 375px) {
+    .hero h1 { font-size: 1.35rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav aria-label="Main">
+    <a href="index.html" class="nav-brand">AgentFence</a>
+    <a href="index.html" class="current">Try it</a>
+    <a href="live.html">Live log</a>
+    <a href="how-it-works.html">How it works</a>
+    <a href="security-proof.html">Security proof</a>
+    <a href="developers.html">Developers</a>
+  </nav>
+
+  <header class="hero">
+    <h1>AgentFence</h1>
+    <p>Give an AI agent money without giving it the keys.</p>
+  </header>
+
+  <div class="bento" aria-live="polite">
+
+    <!-- ── Playground (large, spans 2 col × 2 row) ── -->
+    <section class="card bento-playground" aria-label="Try it playground">
+      <h2>Try it</h2>
+      <p class="muted" style="margin:0 0 16px;">Simulation using the live on-chain policy. No transaction is sent.</p>
+
+      <div class="scenarios" role="group" aria-label="Scenarios">
+        <button type="button" data-scenario="A" aria-pressed="false">Legit invoice</button>
+        <button type="button" data-scenario="B" aria-pressed="false">Injected: new address</button>
+        <button type="button" data-scenario="C" aria-pressed="false">Injected: huge amount</button>
+        <button type="button" data-scenario="D" aria-pressed="false">Agent paused</button>
+      </div>
+
+      <form id="check-form" aria-label="Request check">
+        <label>
+          Destination (0x… address)
+          <input id="f-destination" name="destination" type="text"
+                 placeholder="0x1111111111111111111111111111111111111111"
+                 required autocomplete="off">
+        </label>
+        <label>
+          Amount (ETH)
+          <input id="f-amount" name="amount" type="text"
+                 placeholder="0.001" required inputmode="decimal" autocomplete="off">
+        </label>
+        <div>
+          <button type="submit" id="btn-run" class="btn-primary">Run check</button>
+        </div>
+      </form>
+
+      <ul class="checks" id="checks" aria-live="polite"></ul>
+      <p class="warns" id="check-note"></p>
+
+      <!-- Glass result card -->
+      <div class="result" id="result" role="status"></div>
+
+      <p style="margin-top:16px;font-size:0.88rem;">
+        <a href="live.html">See real runs in the Live log →</a>
+      </p>
+      <p class="muted" style="margin:4px 0 0;font-size:0.83rem;">
+        These scenarios were run for real on testnet: see <a href="security-proof.html">Security proof</a>.
+      </p>
+    </section>
+
+    <!-- ── Agent status ── -->
+    <section class="card bento-status" aria-label="Agent status">
+      <h2>Status</h2>
+      <div id="stat-status" class="muted" style="font-size:0.95rem;">loading…</div>
+    </section>
+
+    <!-- ── Spend today ── -->
+    <section class="card bento-spend" aria-label="Spend today">
+      <h2>Spend today</h2>
+      <div id="stat-spent" class="muted">loading…</div>
+      <div class="bar" role="img" aria-label="Spend progress">
+        <div id="spent-fill"></div>
+      </div>
+      <div class="muted" id="spent-sub">wei · ETH shown alongside</div>
+    </section>
+
+    <!-- ── Policy limits ── -->
+    <section class="card bento-policy" aria-label="Policy limits">
+      <h2>Policy limits</h2>
+      <div id="stat-policy" class="muted">loading…</div>
+    </section>
+
+    <!-- ── Controlled EVM address ── -->
+    <section class="card bento-evm" aria-label="Controlled EVM address">
+      <h2>Controlled EVM address</h2>
+      <p class="muted" style="margin:0 0 8px;font-size:0.83rem;">
+        Derived from the contract, not the agent. The agent holds no signing key.
+      </p>
+      <div class="evm-addr" id="stat-evm">—</div>
+    </section>
+
+    <!-- ── Start here guide ── -->
+    <section class="card bento-steps" aria-label="Start here">
+      <h2>Start here</h2>
+      <div class="steps">
+        <div class="step">
+          <b>1) Pick an invoice</b>
+          Choose one of the four scenarios above, or fill the form yourself.
+        </div>
+        <div class="step">
+          <b>2) Watch the contract check the rules</b>
+          The checks run in order and stop at the first failure.
+        </div>
+        <div class="step">
+          <b>3) See the on-chain audit log</b>
+          Every decision is appended to <a href="live.html">Live log</a>.
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Last 3 decisions ── -->
+    <section class="card bento-decisions" aria-label="Last 3 decisions" aria-live="polite">
+      <h2>Last 3 decisions</h2>
+      <div class="decisions-list" id="last-decisions">
+        <div class="muted">loading…</div>
+      </div>
+      <div class="updated">last updated: <span id="updated">—</span></div>
+    </section>
+
+  </div><!-- /.bento -->
+
+</div><!-- /.wrap -->
+
+<script src="config.js"></script>
+<script>
+(function () {
+  // Config (CONTRACT_ACCOUNT, AGENT_ACCOUNT, NEAR_RPC_URL, EVM_ADDRESS,
+  // OWNER_ACCOUNT, NEAR_EXPLORER_TX_BASE) comes from dashboard/config.js.
+  var { CONTRACT_ACCOUNT, AGENT_ACCOUNT, NEAR_RPC_URL, EVM_ADDRESS } = window.AGENTFENCE_CONFIG;
+
+  var $ = (id) => document.getElementById(id);
+  var WEI_PER_ETH = 10n ** 18n;
+
+  // Show derived EVM address
+  if (EVM_ADDRESS) {
+    $('stat-evm').innerHTML = `<a href="https://sepolia.etherscan.io/address/${EVM_ADDRESS}" target="_blank" rel="noopener">${EVM_ADDRESS}</a>`;
+  }
+
+  function weiToEth(wei) {
+    var v = BigInt(wei ?? '0');
+    var w = WEI_PER_ETH;
+    var microTotal = ((v % w) * 1000000n + w / 2n) / w;
+    var whole = v / w + (microTotal >= 1000000n ? 1n : 0n);
+    var micro = microTotal % 1000000n;
+    var trimmed = micro ? micro.toString().padStart(6, '0').replace(/0+$/, '') : '';
+    return trimmed ? `${whole}.${trimmed}` : `${whole}`;
+  }
+
+  function ethToWei(eth) {
+    var s = String(eth).trim();
+    var m = /^(\d*)(?:\.(\d{0,18}))?$/.exec(s);
+    if (!m || (m[1] === '' && !m[2])) throw new Error('amount is not a valid ETH number');
+    var whole = m[1] === '' ? 0n : BigInt(m[1]);
+    var frac = (m[2] ?? '').padEnd(18, '0');
+    return whole * WEI_PER_ETH + BigInt(frac);
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+
+  function fmtTime(nanos) {
+    return new Date(Number(nanos) / 1e6).toLocaleTimeString();
+  }
+
+  function shorten(addr) {
+    return addr.length > 14 ? `${addr.slice(0, 7)}…${addr.slice(-6)}` : addr;
+  }
+
+  async function rpcView(method, args) {
+    var body = {
+      jsonrpc: '2.0',
+      id: 'dot',
+      method: 'query',
+      params: {
+        request_type: 'call_function',
+        account_id: CONTRACT_ACCOUNT,
+        method_name: method,
+        args_base64: btoa(JSON.stringify(args)),
+        finality: 'final',
+      },
+    };
+    var res = await fetch(NEAR_RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
+    var json = await res.json();
+    if (json.error) throw new Error(json.error.message || JSON.stringify(json.error));
+    var text = new TextDecoder().decode(new Uint8Array(json.result.result));
+    return JSON.parse(text);
+  }
+
+  var scenarios = {
+    A: { destination: '0x1111111111111111111111111111111111111111', amountEth: '0.001', simulatePaused: false },
+    B: { destination: '0x2222222222222222222222222222222222222222', amountEth: '0.05',  simulatePaused: false },
+    C: { destination: '0x1111111111111111111111111111111111111111', amountEth: '5',     simulatePaused: false },
+    D: { destination: '0x1111111111111111111111111111111111111111', amountEth: '0.001', simulatePaused: true  },
+  };
+
+  var scenarioButtons = document.querySelectorAll('[data-scenario]');
+  scenarioButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      scenarioButtons.forEach((b) => b.setAttribute('aria-pressed', 'false'));
+      btn.setAttribute('aria-pressed', 'true');
+      var s = scenarios[btn.dataset.scenario];
+      $('f-destination').value = s.destination;
+      $('f-amount').value = s.amountEth;
+    });
+  });
+
+  function setCheckRow(i, label, state, reason) {
+    var li = document.createElement('li');
+    var iconChar = state === 'fail' ? '✕' : state === 'pending' ? '…' : '✓';
+    var iconColor = state === 'fail' ? 'color:var(--red)' : state === 'pending' ? 'color:var(--muted)' : 'color:var(--green)';
+    li.innerHTML = `<span class="icon" style="${iconColor}">${iconChar}</span>
+      <span><strong>${esc(label)}</strong>${reason ? `<br><span class="muted">${esc(reason)}</span>` : ''}</span>`;
+    var list = $('checks');
+    list.children[i]?.replaceChildren(li);
+    if (!list.children[i]) list.appendChild(li);
+  }
+
+  var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function pause(ms) {
+    return new Promise((r) => setTimeout(r, reducedMotion ? 0 : ms));
+  }
+
+  // Drives one simulated request_spend using LIVE policy/allowlist/paused/spent.
+  async function runCheck() {
+    var destination = $('f-destination').value.trim();
+    var amountEth   = $('f-amount').value.trim();
+    var list = $('checks');
+    list.innerHTML = '';
+    $('result').style.display = 'none';
+    $('check-note').textContent = '';
+
+    var pausedSimulation = false;
+    if (document.querySelector('[aria-pressed="true"]')?.dataset.scenario === 'D') {
+      pausedSimulation = true;
+    }
+
+    let policy;
+    try {
+      policy = await rpcView('get_policy', { agent_id: AGENT_ACCOUNT });
+    } catch (e) {
+      setCheckRow(0, 'policy exists', 'fail', String(e.message));
+      var r = $('result');
+      r.className = 'result bad';
+      r.innerHTML = `<span class="sim">Simulation — no transaction sent</span>
+        <span class="verdict">BLOCKED</span>
+        <br><span class="muted">RPC failed: ${esc(e.message)}</span>`;
+      r.style.display = 'block';
+      return;
+    }
+
+    var spent = BigInt((await rpcView('get_spent_today', { agent_id: AGENT_ACCOUNT })) ?? '0');
+    var amountWei;
+    try {
+      amountWei = ethToWei(amountEth);
+    } catch {
+      setCheckRow(2, 'amount > 0', 'fail', 'bad amount format');
+      return;
+    }
+
+    var dest = destination.startsWith('evm:') ? destination : `evm:${destination}`;
+    var allowlisted = await rpcView('is_destination_allowed', { agent_id: AGENT_ACCOUNT, destination: dest });
+    var paused = pausedSimulation ? true : policy.paused;
+
+    var checks = [
+      { label: 'policy exists',              ok: policy != null,                                  reason: 'no policy for agent' },
+      { label: 'agent not paused',           ok: !paused,                                         reason: 'agent is paused' },
+      { label: 'amount > 0',                 ok: amountWei > 0n,                                  reason: 'amount must be greater than zero' },
+      { label: 'destination allowlisted',    ok: allowlisted === true,                            reason: 'destination not allowlisted' },
+      { label: 'amount ≤ per_tx_limit',      ok: amountWei <= BigInt(policy.per_tx_limit),        reason: 'exceeds per_tx_limit' },
+      { label: 'spent_today + amount ≤ daily_cap', ok: spent + amountWei <= BigInt(policy.daily_cap), reason: 'exceeds daily_cap' },
+    ];
+
+    var failed = -1;
+    for (var i = 0; i < checks.length; i++) {
+      setCheckRow(i, checks[i].label, 'pending');
+      await pause(400);
+      if (!checks[i].ok) {
+        setCheckRow(i, checks[i].label, 'fail', checks[i].reason);
+        failed = i;
+        break;
+      }
+      setCheckRow(i, checks[i].label, 'pass');
+    }
+
+    var result = $('result');
+    if (failed >= 0) {
+      result.className = 'result bad';
+      result.innerHTML = `<span class="sim">Simulation using the live on-chain policy — no transaction sent</span>
+        <span class="verdict">BLOCKED</span>
+        <br><span class="muted">${esc(checks[failed].reason)}</span>`;
+    } else {
+      result.className = 'result ok';
+      result.innerHTML = `<span class="sim">Simulation using the live on-chain policy — no transaction sent</span>
+        <span class="verdict">ALLOWED</span>
+        <br><span class="muted">The contract would ask the MPC to sign a Sepolia transaction.</span>`;
+    }
+    result.style.display = 'block';
+    if (pausedSimulation && failed === 1) {
+      $('check-note').textContent =
+        'NOTE: scenario D forces paused=true locally; the real agent was not paused.';
+    }
+  }
+
+  $('check-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    runCheck().catch((e) => {
+      var result = $('result');
+      result.className = 'result bad';
+      result.innerHTML = `<span class="sim">Simulation — no transaction sent</span>
+        <span class="verdict">ERROR</span>
+        <br><span class="muted">${esc(e.message)}</span>`;
+      result.style.display = 'block';
+    });
+  });
+
+  // Live stat cards.
+  async function refreshStats() {
+    try {
+      var [policy, spent, audit] = await Promise.all([
+        rpcView('get_policy',     { agent_id: AGENT_ACCOUNT }),
+        rpcView('get_spent_today',{ agent_id: AGENT_ACCOUNT }),
+        rpcView('get_audit_log',  { from_index: 0, limit: 50 }),
+      ]);
+      var paused = policy?.paused === true;
+
+      $('stat-policy').innerHTML =
+        `<div style="margin-bottom:4px;font-size:0.9rem;">per_tx_limit: <code>${esc(weiToEth(policy.per_tx_limit))} ETH</code></div>
+         <div style="font-size:0.9rem;">daily_cap: <code>${esc(weiToEth(policy.daily_cap))} ETH</code></div>`;
+
+      $('stat-status').innerHTML =
+        paused
+          ? '<span class="badge paused">PAUSED</span>'
+          : '<span class="badge active">ACTIVE</span>';
+
+      var spentWei = BigInt(spent ?? '0');
+      $('stat-spent').innerHTML = `<span class="big">${weiToEth(spent)} ETH</span>
+        <span class="muted">of ${esc(weiToEth(policy.daily_cap))} ETH cap</span>`;
+      var capWei = BigInt(policy.daily_cap ?? '1');
+      var pct = capWei > 0n ? Math.min(100, Number((spentWei * 10000n) / capWei) / 100) : 0;
+      $('spent-fill').style.width = `${pct}%`;
+
+      // Last 3 decisions
+      var last3 = [...(audit || [])].reverse().slice(0, 3);
+      if (last3.length === 0) {
+        $('last-decisions').innerHTML = '<div class="muted">No decisions yet.</div>';
+      } else {
+        $('last-decisions').innerHTML = last3.map((e) => {
+          var badgeClass = e.decision === 'Allowed' ? 'badge green' : 'badge red';
+          return `<div class="decision-row">
+            <span class="${badgeClass}">${esc(e.decision)}</span>
+            <span class="dr-addr" title="${esc(e.destination)}">${esc(shorten(e.destination))}</span>
+            <span class="dr-amt">${weiToEth(e.amount)} ETH</span>
+            <span class="dr-time">${fmtTime(e.timestamp)}</span>
+          </div>`;
+        }).join('');
+      }
+
+      $('updated').textContent = new Date().toLocaleTimeString();
+    } catch (err) {
+      var msg = `failed to load: ${err.message}`;
+      ['stat-policy', 'stat-spent', 'stat-status'].forEach((id) => {
+        $(id).innerHTML = `<span class="err">${esc(msg)}</span>`;
+      });
+      $('updated').textContent = 'error';
+    }
+  }
+  refreshStats();
+  setInterval(refreshStats, 5000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Live log — AgentFence</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  AgentFence dashboard — single static file, no build step, no framework,
+  no wallet connection. Serve it with any tiny static server, e.g.:
+
+    npx serve dashboard
+
+  Then open the printed URL in a browser.
+-->
+<style>
+  /* ── Design tokens ─────────────────────────────────────────────── */
+  :root {
+    --bg:          #0f1419;
+    --card:        #1a2230;
+    --card-border: #2d333b;
+    --text:        #e6edf3;
+    --muted:       #8b949e;
+    --green:       #3fb950;
+    --red:         #f85149;
+    --accent:      #58a6ff;
+    --radius:      14px;
+    --radius-sm:   8px;
+    --gap:         16px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+  a { color: var(--accent); }
+  code { word-break: break-all; }
+
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 28px 20px 72px; }
+
+  /* ── Nav ──────────────────────────────────────────────────────── */
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 32px;
+    align-items: center;
+  }
+  .nav-brand {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--text);
+    text-decoration: none;
+    margin-right: 8px;
+  }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.92rem;
+    letter-spacing: 0.01em;
+    transition: color 0.15s;
+  }
+  nav a:hover { color: var(--text); }
+  nav a.current {
+    color: var(--text);
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 1px;
+  }
+  nav a:focus-visible,
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+  /* ── Hero ─────────────────────────────────────────────────────── */
+  .hero { margin-bottom: 28px; }
+  .hero h1 { margin: 0 0 6px; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+  .hero p  { margin: 0; color: var(--muted); font-size: 1.05rem; }
+
+  /* ── Card ─────────────────────────────────────────────────────── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    margin-bottom: var(--gap);
+  }
+  .card h2 {
+    margin: 0 0 14px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  /* ── Grid (stat cards) ────────────────────────────────────────── */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--gap);
+    margin-bottom: var(--gap);
+  }
+  .grid .card { margin-bottom: 0; }
+
+  /* ── Misc shared ──────────────────────────────────────────────── */
+  .big { font-size: 1.6rem; font-weight: 700; line-height: 1.1; display: block; margin-bottom: 4px; }
+  .muted { color: var(--muted); font-size: 0.88rem; }
+  .err   { color: var(--red); }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .badge.active { background: rgba(63,185,80,.18); color: var(--green); border: 1px solid rgba(63,185,80,.35); }
+  .badge.paused { background: rgba(248,81,73,.18); color: var(--red);   border: 1px solid rgba(248,81,73,.35); }
+  .badge.green  { background: rgba(63,185,80,.18); color: var(--green); border: 1px solid rgba(63,185,80,.35); }
+  .badge.red    { background: rgba(248,81,73,.18); color: var(--red);   border: 1px solid rgba(248,81,73,.35); }
+
+  .bar { height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; margin: 10px 0 6px; }
+  .bar > div { height: 100%; background: var(--green); width: 0%; border-radius: 999px; transition: width 0.4s ease; }
+
+  /* ── Table ────────────────────────────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--card-border); }
+  th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  tr.audit-main:hover td { background: rgba(255,255,255,0.03); }
+  tr.audit-main { cursor: pointer; }
+  td.toggle-cell { color: var(--muted); }
+
+  /* ── Code / pre ───────────────────────────────────────────────── */
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-size: 0.83rem;
+    margin: 6px 0 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  /* ── Button ───────────────────────────────────────────────────── */
+  button {
+    background: var(--accent);
+    color: #0f1419;
+    border: 0;
+    border-radius: var(--radius-sm);
+    padding: 7px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 700;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.85; }
+
+  .copyrow { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+  .updated { color: var(--muted); font-size: 0.8rem; text-align: right; margin-top: 8px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bar > div { transition: none; }
+    button { transition: none; }
+  }
+
+  @media (max-width: 640px) {
+    table { font-size: 0.8rem; }
+    th:nth-child(3), td:nth-child(3) { display: none; }
+    .hero h1 { font-size: 1.75rem; }
+  }
+  @media (max-width: 375px) {
+    .hero h1 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav aria-label="Main">
+    <a href="index.html" class="nav-brand">AgentFence</a>
+    <a href="index.html">Try it</a>
+    <a href="live.html" class="current">Live log</a>
+    <a href="how-it-works.html">How it works</a>
+    <a href="security-proof.html">Security proof</a>
+    <a href="developers.html">Developers</a>
+  </nav>
+
+  <header class="hero">
+    <h1>Live log</h1>
+    <p>The agent can ask. The contract decides.</p>
+  </header>
+
+  <!-- Shared config lives in dashboard/config.js (loaded below). -->
+
+  <div class="grid">
+    <section class="card" id="policy-card">
+      <h2>Policy</h2>
+      <div id="policy" class="muted">loading…</div>
+    </section>
+
+    <section class="card" id="spent-card">
+      <h2>Spend today</h2>
+      <div id="spent" class="muted">loading…</div>
+      <div class="bar"><div id="spent-fill"></div></div>
+      <div class="muted" id="spent-sub">wei · ETH shown alongside</div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Audit log (newest first)</h2>
+    <div id="audit" class="muted">loading…</div>
+    <div class="updated">last updated: <span id="updated">—</span></div>
+  </section>
+
+  <section class="card">
+    <h2>Controlled EVM address</h2>
+    <div>
+      <a id="evm-link" target="_blank" rel="noopener">
+        <code id="evm-address" class="mono"></code>
+      </a>
+      <span class="muted" id="evm-balance"></span>
+    </div>
+    <p class="muted">This address is derived from the contract, not the agent. The agent holds no signing key.</p>
+    <p class="muted">Fund it with Sepolia ETH from a faucet before broadcasting.</p>
+  </section>
+
+  <section class="card">
+    <h2>Owner controls</h2>
+    <p class="muted">Copy-paste these <code>near</code> commands (signed as the owner). Nothing here signs from the page.</p>
+    <div id="owner-commands"></div>
+  </section>
+
+</div>
+
+<script src="config.js"></script>
+<script>
+// Config (CONTRACT_ACCOUNT, AGENT_ACCOUNT, NEAR_RPC_URL, EVM_ADDRESS,
+// OWNER_ACCOUNT, NEAR_EXPLORER_TX_BASE) comes from dashboard/config.js.
+const { CONTRACT_ACCOUNT, AGENT_ACCOUNT, NEAR_RPC_URL, EVM_ADDRESS, OWNER_ACCOUNT, NEAR_EXPLORER_TX_BASE } = window.AGENTFENCE_CONFIG;
+// ======================================================================
+
+const $ = (id) => document.getElementById(id);
+const els = { policy: $('policy'), spent: $('spent'), spentFill: $('spent-fill'), audit: $('audit'), updated: $('updated') };
+const WEI_PER_ETH = 10n ** 18n; // kept for spent/cap math below
+
+function weiToEth(wei) {
+  const v = BigInt(wei ?? '0');
+  const w = 10n ** 18n;
+  // Round to at most 6 decimals (exact wei shown separately).
+  const microTotal = ((v % w) * 1000000n + w / 2n) / w;
+  const whole = v / w + (microTotal >= 1000000n ? 1n : 0n);
+  const micro = microTotal % 1000000n;
+  const trimmed = micro ? micro.toString().padStart(6, '0').replace(/0+$/, '') : '';
+  return trimmed ? `${whole}.${trimmed}` : `${whole}`;
+}
+
+function fmtTime(nanos) {
+  const d = new Date(Number(nanos) / 1e6);
+  return d.toLocaleString();
+}
+
+function shorten(addr) {
+  return addr.length > 14 ? `${addr.slice(0, 7)}…${addr.slice(-6)}` : addr;
+}
+
+function toggleDetail(i) {
+  const row = document.getElementById(`detail-${i}`);
+  if (!row) return;
+  row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
+// EXPERIMENTAL: fetch payload hash from the transaction outcome of the
+// MPC sign call, if queryable. `request_spend` does not store a tx hash in
+// the audit entry, so there is no receipt hash to look up by known value.
+// We therefore attempt tx_status for the latest `request_spend` receipts,
+// and if nothing is found we say so plainly instead of faking a hash.
+async function tryFetchPayloadHash(entry, i) {
+  const box = document.querySelector(`#detail-${i} .payload-box`);
+  if (!box) return;
+  box.textContent = 'payload hash: not indexed in the audit entry (see note below).';
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+async function rpcView(method, args) {
+  const body = {
+    jsonrpc: '2.0',
+    id: 'dot',
+    method: 'query',
+    params: {
+      request_type: 'call_function',
+      account_id: CONTRACT_ACCOUNT,
+      method_name: method,
+      args_base64: btoa(JSON.stringify(args)),
+      finality: 'final',
+    },
+  };
+  const res = await fetch(NEAR_RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
+  const json = await res.json();
+  if (json.error) throw new Error(json.error.message || JSON.stringify(json.error));
+  const bytes = json.result.result;
+  const text = new TextDecoder().decode(new Uint8Array(bytes));
+  return JSON.parse(text);
+}
+
+// Owner CLI commands, built from the config above (verified against
+// `near contract call-function as-transaction --help` in near-cli 0.31.1).
+function ownerCommand(method, jsonArgs) {
+  return `near contract call-function as-transaction ${CONTRACT_ACCOUNT} ${method} json-args '${JSON.stringify(jsonArgs)}' prepaid-gas '100 TeraGas' attached-deposit '0 NEAR' sign-as ${OWNER_ACCOUNT} network-config testnet sign-with-keychain send`;
+}
+
+function renderOwnerCommands(policy) {
+  const cmds = [
+    ['set_policy (per_tx_limit 0.01 ETH, daily_cap 0.05 ETH)',
+      ownerCommand('set_policy', { agent_id: AGENT_ACCOUNT, per_tx_limit: '10000000000000000', daily_cap: '50000000000000000' })],
+    ['add_destination',
+      ownerCommand('add_destination', { agent_id: AGENT_ACCOUNT, destination: 'evm:0x1111111111111111111111111111111111111111' })],
+    ['set_paused (true = pause the agent)',
+      ownerCommand('set_paused', { agent_id: AGENT_ACCOUNT, paused: true })],
+    ['set_paused (false = resume the agent)',
+      ownerCommand('set_paused', { agent_id: AGENT_ACCOUNT, paused: false })],
+  ];
+  $('owner-commands').innerHTML = cmds.map(([label, cmd], i) => `
+    <div class="copyrow"><strong>${esc(label)}</strong><button data-i="${i}">Copy</button></div>
+    <pre class="mono">${esc(cmd)}</pre>`).join('');
+  document.querySelectorAll('#owner-commands button').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const cmd = cmds[Number(btn.dataset.i)][1];
+      try {
+        await navigator.clipboard.writeText(cmd);
+        btn.textContent = 'Copied';
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = cmd;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        btn.textContent = 'Copied';
+      }
+      setTimeout(() => (btn.textContent = 'Copy'), 1500);
+    });
+  });
+}
+
+async function refresh() {
+  try {
+    const [policy, spent, audit] = await Promise.all([
+      rpcView('get_policy',     { agent_id: AGENT_ACCOUNT }),
+      rpcView('get_spent_today',{ agent_id: AGENT_ACCOUNT }),
+      rpcView('get_audit_log',  { from_index: 0, limit: 50 }),
+    ]);
+    const paused = policy?.paused === true;
+    els.policy.innerHTML = `
+      <div class="big">${paused ? '<span class="badge paused">PAUSED</span>' : '<span class="badge active">ACTIVE</span>'}</div>
+      <div>per_tx_limit: <code>${esc(weiToEth(policy.per_tx_limit))} ETH</code></div>
+      <div>daily_cap: <code>${esc(weiToEth(policy.daily_cap))} ETH</code></div>`;
+    const spentWei = BigInt(spent ?? '0');
+    const capWei = BigInt(policy.daily_cap ?? '1');
+    const pct = capWei > 0n ? Math.min(100, Number((spentWei * 10000n) / capWei) / 100) : 0;
+    els.spent.innerHTML = `<span class="big">${weiToEth(spent)} ETH</span> of <code>${esc(weiToEth(policy.daily_cap))} ETH</code> cap`;
+    els.spentFill.style.width = `${pct}%`;
+    const rows = [...audit].reverse().map((e, i) => `
+      <tr class="audit-main" data-idx="${i}">
+        <td>${e.id}</td>
+        <td>${fmtTime(e.timestamp)}</td>
+        <td><code title="${esc(e.agent_id)}">${esc(shorten(e.agent_id))}</code></td>
+        <td><code title="${esc(e.destination)}">${esc(shorten(e.destination))}</code></td>
+        <td>${weiToEth(e.amount)} ETH<br><span class="muted">${esc(e.amount)}</span></td>
+        <td>${e.decision === 'Allowed' ? '<span class="badge green">Allowed</span>' : '<span class="badge red">Blocked</span>'}</td>
+        <td>${esc(e.reason ?? '—')}</td>
+        <td class="toggle-cell muted">▸</td>
+      </tr>
+      <tr class="audit-detail" id="detail-${i}" style="display:none">
+        <td colspan="8">
+          <strong>id:</strong> ${e.id}<br>
+          <strong>timestamp:</strong> ${e.timestamp} (${fmtTime(e.timestamp)})<br>
+          <strong>agent:</strong> <code>${esc(e.agent_id)}</code><br>
+          <strong>destination:</strong> <code>${esc(e.destination)}</code><br>
+          <strong>amount:</strong> ${esc(e.amount)} wei (${weiToEth(e.amount)} ETH)<br>
+          <strong>decision:</strong> ${esc(e.decision)}<br>
+          <strong>reason:</strong> ${esc(e.reason ?? '—')}
+          <div class="payload-box muted">payload hash: looking up…</div>
+        </td>
+      </tr>`).join('');
+    els.audit.innerHTML = `
+      <table>
+        <thead><tr><th>id</th><th>time</th><th>agent</th><th>destination</th><th>amount</th><th>decision</th><th>reason</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    document.querySelectorAll('.audit-main').forEach((tr, i) => {
+      tr.addEventListener('click', () => toggleDetail(i));
+    });
+    // Best-effort payload hash for Allowed rows via EXPERIMENTAL_tx_status.
+    [...audit].reverse().forEach((e, i) => {
+      if (e.decision === 'Allowed') tryFetchPayloadHash(e, i);
+    });
+    renderOwnerCommands(policy);
+    els.updated.textContent = new Date().toLocaleTimeString();
+  } catch (err) {
+    const msg = `failed to load: ${err.message}`;
+    [els.policy, els.spent, els.audit].forEach((el) => {
+      el.innerHTML = `<span class="err">${esc(msg)}</span>`;
+    });
+    els.updated.textContent = 'error';
+  }
+}
+
+$('evm-address').textContent = EVM_ADDRESS;
+$('evm-link').href = `https://sepolia.etherscan.io/address/${EVM_ADDRESS}`;
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
