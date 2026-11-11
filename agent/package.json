@@ -1,0 +1,27 @@
+{
+  "name": "agentfence-agent",
+  "private": true,
+  "type": "module",
+  "description": "LLM agent that pays invoices via the agentfence contract (function-call key only)",
+  "scripts": {
+    "agent": "tsx src/agent.ts",
+    "demo:injection": "tsx src/demo-injection.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "agentfence-sdk": "file:../sdk",
+    "chainsig.js": "^1.1.16",
+    "dotenv": "^17.0.0",
+    "near-api-js": "^7.4.0",
+    "viem": "^2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
