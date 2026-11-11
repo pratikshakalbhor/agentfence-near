@@ -1,0 +1,13 @@
+{
+  "name": "evm-derive-address",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "derive": "node derive-address.mjs"
+  },
+  "dependencies": {
+    "chainsig.js": "^1.1.16",
+    "near-api-js": "^7.2.0",
+    "viem": "^2"
+  }
+}

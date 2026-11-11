@@ -1,0 +1,8 @@
+{
+  "name": "verify-hash",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "viem": "^2"
+  }
+}
