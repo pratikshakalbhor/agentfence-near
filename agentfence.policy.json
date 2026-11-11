@@ -1,0 +1,1 @@
+{"contract":"agentfence-contract-evm-0b497ae1.testnet","owner":"agentfence-owner-9a9635f2.testnet","agent":"agentfence-agent-9a9635f2.testnet","perTxLimitWei":"10000000000000000","dailyCapWei":"50000000000000000","allowlist":["evm:0x1111111111111111111111111111111111111111"],"paused":false}
