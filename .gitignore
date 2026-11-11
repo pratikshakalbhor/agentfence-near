@@ -1,0 +1,42 @@
+# Rust
+/target
+contract/target/
+**/*.rs.bk
+Cargo.lock
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+.yarn/
+dist/
+build/
+
+# Env files
+.env
+.env.*
+!.env.example
+*.local
+
+# NEAR CLI credentials - never commit private keys or seed phrases
+.near-credentials/
+near-credentials/
+*.pem
+
+# Build output
+*.wasm
+/out
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temp fixtures
+.tmp-*
