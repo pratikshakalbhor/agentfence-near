@@ -8,144 +8,17 @@
   Landing page: live stat cards + a checks playground.
   Serve: npx serve dashboard. Shared config: dashboard/config.js.
 -->
+<link rel="stylesheet" href="theme.css">
 <style>
-  /* ── Design tokens ─────────────────────────────────────────────── */
-  :root {
-    /* Background & surface */
-    --bg:          #0f1419;
-    --card:        #1a2230;
-    --card-border: #2d333b;
-
-    /* Text */
-    --text:        #e6edf3;
-    --muted:       #8b949e;
-
-    /* Semantic */
-    --green:       #3fb950;
-    --red:         #f85149;
-
-    /* Single accent */
-    --accent:      #58a6ff;
-
-    /* Glassmorphism (result card only) */
-    --glass-bg:    rgba(26, 34, 48, 0.55);
-    --glass-border:rgba(255, 255, 255, 0.10);
-    --glass-blur:  16px;
-
-    /* Geometry */
-    --radius:      14px;
-    --radius-sm:   8px;
-
-    /* Spacing */
-    --gap:         16px;
-  }
-
-  /* ── Reset & base ─────────────────────────────────────────────── */
-  *, *::before, *::after { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    font-size: 1rem;
-    line-height: 1.6;
-  }
-  a { color: var(--accent); }
-  code { word-break: break-all; }
-
-  /* ── Layout wrapper ───────────────────────────────────────────── */
-  .wrap {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 28px 20px 72px;
-  }
-
-  /* ── Nav ──────────────────────────────────────────────────────── */
-  nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    margin-bottom: 32px;
-    align-items: center;
-  }
-  .nav-brand {
-    font-weight: 700;
-    font-size: 1.1rem;
-    color: var(--text);
-    text-decoration: none;
-    margin-right: 8px;
-  }
-  nav a {
-    color: var(--muted);
-    text-decoration: none;
-    font-size: 0.92rem;
-    letter-spacing: 0.01em;
-    transition: color 0.15s;
-  }
-  nav a:hover { color: var(--text); }
-  nav a.current {
-    color: var(--text);
-    border-bottom: 2px solid var(--accent);
-    padding-bottom: 1px;
-  }
-  nav a:focus-visible,
-  button:focus-visible,
-  input:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 3px;
-    border-radius: 3px;
-  }
-
-  /* ── Hero header ──────────────────────────────────────────────── */
-  .hero {
-    margin-bottom: 28px;
-  }
-  .hero h1 {
-    margin: 0 0 6px;
-    font-size: 2.2rem;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
-  }
-  .hero p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 1.05rem;
-  }
-
-  /* ── Card base ────────────────────────────────────────────────── */
-  .card {
-    background: var(--card);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius);
-    padding: 22px 24px;
-  }
-  .card h2 {
-    margin: 0 0 14px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-  }
-
-  /* ── Bento grid ───────────────────────────────────────────────── */
-  /*
-    Row 1: [Playground — spans 2 col] [Status] [Spend]
-    Row 2: [Playground cont.]          [Policy] [EVM]
-    Row 3: [Start here guide — full width]
-    Row 4: [Last 3 decisions — full width]
-
-    We use named areas for clarity.
-  */
+  /* ── Bento grid — landing page only ────────────────────────────── */
   .bento {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    grid-template-rows: auto;
     gap: var(--gap);
     margin-bottom: var(--gap);
   }
 
+  /* Desktop layout */
   .bento-playground { grid-column: 1 / 3; grid-row: 1 / 3; }
   .bento-status     { grid-column: 3;     grid-row: 1; }
   .bento-spend      { grid-column: 3;     grid-row: 2; }
@@ -154,219 +27,9 @@
   .bento-steps      { grid-column: 1 / 4; grid-row: 4; }
   .bento-decisions  { grid-column: 1 / 4; grid-row: 5; }
 
-  /* ── Stat values ──────────────────────────────────────────────── */
-  .big {
-    font-size: 1.6rem;
-    font-weight: 700;
-    line-height: 1.1;
-    display: block;
-    margin-bottom: 4px;
-  }
-  .muted { color: var(--muted); font-size: 0.88rem; }
-  .err   { color: var(--red); }
-
-  /* ── Badge ────────────────────────────────────────────────────── */
-  .badge {
-    display: inline-block;
-    padding: 3px 12px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-  }
-  .badge.active  { background: rgba(63,185,80,.18); color: var(--green); border: 1px solid rgba(63,185,80,.35); }
-  .badge.paused  { background: rgba(248,81,73,.18); color: var(--red);   border: 1px solid rgba(248,81,73,.35); }
-  .badge.green   { background: rgba(63,185,80,.18); color: var(--green); border: 1px solid rgba(63,185,80,.35); }
-  .badge.red     { background: rgba(248,81,73,.18); color: var(--red);   border: 1px solid rgba(248,81,73,.35); }
-
-  /* ── Spend bar ────────────────────────────────────────────────── */
-  .bar {
-    height: 6px;
-    background: rgba(255,255,255,0.08);
-    border-radius: 999px;
-    overflow: hidden;
-    margin: 10px 0 6px;
-  }
-  .bar > div {
-    height: 100%;
-    background: var(--green);
-    width: 0%;
-    border-radius: 999px;
-    transition: width 0.4s ease;
-  }
-
-  /* ── Steps guide ──────────────────────────────────────────────── */
-  .steps {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-  }
-  .step {
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-sm);
-    padding: 14px 16px;
-    font-size: 0.9rem;
-  }
-  .step b {
-    display: block;
-    margin-bottom: 4px;
-    font-size: 0.95rem;
-    color: var(--text);
-  }
-
-  /* ── Playground form ──────────────────────────────────────────── */
-  .scenarios {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .scenarios button {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid var(--card-border);
-    color: var(--text);
-    border-radius: var(--radius-sm);
-    padding: 7px 14px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-  }
-  .scenarios button:hover { background: rgba(255,255,255,0.09); }
-  .scenarios button[aria-pressed="true"] {
-    background: rgba(88,166,255,0.15);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  form { display: grid; gap: 12px; }
-  label {
-    display: grid;
-    gap: 5px;
-    font-size: 0.88rem;
-    color: var(--muted);
-  }
-  input {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--card-border);
-    color: var(--text);
-    border-radius: var(--radius-sm);
-    padding: 10px 12px;
-    font-size: 0.95rem;
-    width: 100%;
-    transition: border-color 0.15s;
-  }
-  input:focus { border-color: var(--accent); outline: none; }
-  .btn-primary {
-    background: var(--accent);
-    color: #0f1419;
-    border: 0;
-    border-radius: var(--radius-sm);
-    padding: 11px 20px;
-    font-size: 0.95rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: opacity 0.15s;
-    align-self: start;
-  }
-  .btn-primary:hover { opacity: 0.85; }
-  .btn-primary:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 3px;
-  }
-
-  /* ── Check list ───────────────────────────────────────────────── */
-  .checks {
-    list-style: none;
-    margin: 14px 0 0;
-    padding: 0;
-    display: grid;
-    gap: 7px;
-  }
-  .checks li { display: flex; gap: 10px; align-items: baseline; font-size: 0.92rem; }
-  .checks li .icon { min-width: 1.2em; text-align: center; }
-  .warns { color: var(--muted); font-size: 0.83rem; margin: 6px 0 0; }
-
-  /* ── Result card — GLASSMORPHISM only here ────────────────────── */
-  .result {
-    display: none;
-    border-radius: var(--radius-sm);
-    padding: 16px 18px;
-    margin-top: 14px;
-
-    /* Glass effect */
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    border: 1px solid var(--glass-border);
-
-    /* Fallback for browsers without backdrop-filter */
-  }
-  @supports not (backdrop-filter: blur(1px)) {
-    .result { background: #1e2d42; }
-  }
-  .result.ok  { border-color: rgba(63,185,80,.4); }
-  .result.bad { border-color: rgba(248,81,73,.4); }
-
-  .result .sim {
-    font-size: 0.78rem;
-    color: var(--muted);
-    display: block;
-    margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .result .verdict {
-    font-size: 1.15rem;
-    font-weight: 700;
-  }
-  .result.ok  .verdict { color: var(--green); }
-  .result.bad .verdict { color: var(--red); }
-
-  /* ── Last decisions mini-log ──────────────────────────────────── */
-  .decisions-list {
-    display: grid;
-    gap: 8px;
-  }
-  .decision-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.88rem;
-    padding: 10px 12px;
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius-sm);
-  }
-  .decision-row .dr-time { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
-  .decision-row .dr-addr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .decision-row .dr-amt  { white-space: nowrap; }
-
-  /* ── EVM address card ─────────────────────────────────────────── */
-  .evm-addr {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.85rem;
-    word-break: break-all;
-  }
-
-  /* ── Updated timestamp ────────────────────────────────────────── */
-  .updated {
-    color: var(--muted);
-    font-size: 0.8rem;
-    text-align: right;
-    margin-top: 6px;
-  }
-
-  /* ── Reduced motion ───────────────────────────────────────────── */
-  @media (prefers-reduced-motion: reduce) {
-    .bar > div { transition: none; }
-    .btn-primary,
-    .scenarios button,
-    input { transition: none; }
-  }
-
-  /* ── Responsive: tablet (≤ 700px) ────────────────────────────── */
+  /* Tablet */
   @media (max-width: 700px) {
-    .bento {
-      grid-template-columns: 1fr 1fr;
-    }
+    .bento { grid-template-columns: 1fr 1fr; }
     .bento-playground { grid-column: 1 / 3; grid-row: 1; }
     .bento-status     { grid-column: 1;     grid-row: 2; }
     .bento-spend      { grid-column: 2;     grid-row: 2; }
@@ -374,31 +37,18 @@
     .bento-evm        { grid-column: 2;     grid-row: 3; }
     .bento-steps      { grid-column: 1 / 3; grid-row: 4; }
     .bento-decisions  { grid-column: 1 / 3; grid-row: 5; }
-    .steps { grid-template-columns: 1fr; }
-    .hero h1 { font-size: 1.75rem; }
   }
 
-  /* ── Responsive: mobile (≤ 440px) ────────────────────────────── */
+  /* Single column at 375 px */
   @media (max-width: 440px) {
-    .bento {
-      grid-template-columns: 1fr;
-    }
+    .bento { grid-template-columns: 1fr; }
     .bento-playground,
     .bento-status,
     .bento-spend,
     .bento-policy,
     .bento-evm,
     .bento-steps,
-    .bento-decisions {
-      grid-column: 1;
-      grid-row: auto;
-    }
-    .hero h1 { font-size: 1.5rem; }
-    .wrap { padding: 20px 14px 60px; }
-  }
-
-  @media (max-width: 375px) {
-    .hero h1 { font-size: 1.35rem; }
+    .bento-decisions { grid-column: 1; grid-row: auto; }
   }
 </style>
 </head>
@@ -414,9 +64,9 @@
     <a href="developers.html">Developers</a>
   </nav>
 
-  <header class="hero">
-    <h1>AgentFence</h1>
-    <p>Give an AI agent money without giving it the keys.</p>
+  <header class="hero hero-glow">
+    <h1 class="hero-title">The agent asks.<br>The contract <span class="accent-word">decides.</span></h1>
+    <p class="hero-sub">Give an AI agent money without giving it the keys.</p>
   </header>
 
   <div class="bento" aria-live="polite">
@@ -424,7 +74,7 @@
     <!-- ── Playground (large, spans 2 col × 2 row) ── -->
     <section class="card bento-playground" aria-label="Try it playground">
       <h2>Try it</h2>
-      <p class="muted" style="margin:0 0 16px;">Simulation using the live on-chain policy. No transaction is sent.</p>
+      <p class="muted" style="margin:0 0 18px;">Simulation using the live on-chain policy. No transaction is sent.</p>
 
       <div class="scenarios" role="group" aria-label="Scenarios">
         <button type="button" data-scenario="A" aria-pressed="false">Legit invoice</button>
@@ -446,7 +96,7 @@
                  placeholder="0.001" required inputmode="decimal" autocomplete="off">
         </label>
         <div>
-          <button type="submit" id="btn-run" class="btn-primary">Run check</button>
+          <button type="submit" id="btn-run" class="btn btn-primary">Run check</button>
         </div>
       </form>
 
@@ -456,10 +106,10 @@
       <!-- Glass result card -->
       <div class="result" id="result" role="status"></div>
 
-      <p style="margin-top:16px;font-size:0.88rem;">
+      <p style="margin-top:18px;font-size:0.88rem;">
         <a href="live.html">See real runs in the Live log →</a>
       </p>
-      <p class="muted" style="margin:4px 0 0;font-size:0.83rem;">
+      <p class="muted" style="margin:4px 0 0;font-size:0.82rem;">
         These scenarios were run for real on testnet: see <a href="security-proof.html">Security proof</a>.
       </p>
     </section>
@@ -489,7 +139,7 @@
     <!-- ── Controlled EVM address ── -->
     <section class="card bento-evm" aria-label="Controlled EVM address">
       <h2>Controlled EVM address</h2>
-      <p class="muted" style="margin:0 0 8px;font-size:0.83rem;">
+      <p class="muted" style="margin:0 0 8px;font-size:0.82rem;">
         Derived from the contract, not the agent. The agent holds no signing key.
       </p>
       <div class="evm-addr" id="stat-evm">—</div>
@@ -619,7 +269,7 @@
   function setCheckRow(i, label, state, reason) {
     var li = document.createElement('li');
     var iconChar = state === 'fail' ? '✕' : state === 'pending' ? '…' : '✓';
-    var iconColor = state === 'fail' ? 'color:var(--red)' : state === 'pending' ? 'color:var(--muted)' : 'color:var(--green)';
+    var iconColor = state === 'fail' ? 'color:var(--crimson)' : state === 'pending' ? 'color:var(--muted)' : 'color:var(--green)';
     li.innerHTML = `<span class="icon" style="${iconColor}">${iconChar}</span>
       <span><strong>${esc(label)}</strong>${reason ? `<br><span class="muted">${esc(reason)}</span>` : ''}</span>`;
     var list = $('checks');
@@ -741,8 +391,8 @@
 
       $('stat-status').innerHTML =
         paused
-          ? '<span class="badge paused">PAUSED</span>'
-          : '<span class="badge active">ACTIVE</span>';
+          ? '<span class="badge blocked">PAUSED</span>'
+          : '<span class="badge allowed">ACTIVE</span>';
 
       var spentWei = BigInt(spent ?? '0');
       $('stat-spent').innerHTML = `<span class="big">${weiToEth(spent)} ETH</span>
@@ -757,7 +407,7 @@
         $('last-decisions').innerHTML = '<div class="muted">No decisions yet.</div>';
       } else {
         $('last-decisions').innerHTML = last3.map((e) => {
-          var badgeClass = e.decision === 'Allowed' ? 'badge green' : 'badge red';
+          var badgeClass = e.decision === 'Allowed' ? 'badge allowed' : 'badge blocked';
           return `<div class="decision-row">
             <span class="${badgeClass}">${esc(e.decision)}</span>
             <span class="dr-addr" title="${esc(e.destination)}">${esc(shorten(e.destination))}</span>
