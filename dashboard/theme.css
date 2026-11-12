@@ -64,10 +64,13 @@ a:hover {
 }
 
 /* ── Wrapper ─────────────────────────────────────────────────────── */
+/* clamp(min, preferred, max) keeps equal side margins at every width.
+   At 1700 px: (1700 - 1400) / 2 = 150 px each side — no empty right strip. */
 .wrap {
-  max-width: 1040px;
+  max-width: 1400px;
+  width: 100%;
   margin: 0 auto;
-  padding: 32px 20px 80px;
+  padding: 32px clamp(20px, 4vw, 60px) 80px;
 }
 
 /* ── Nav ─────────────────────────────────────────────────────────── */
@@ -537,9 +540,10 @@ pre.err {
   border-color: var(--border-hover);
 }
 .scenarios button[aria-pressed="true"] {
-  background: rgba(205,203,202,0.15);
+  background: var(--silver);        /* solid silver fill */
   border-color: var(--silver);
-  color: #fff;
+  color: #0a0a0a;                   /* near-black text — #0a0a0a on #CDCBCA ≈ 10.6:1 ✓ */
+  font-weight: 600;
 }
 @media (prefers-reduced-motion: reduce) {
   .scenarios button { transition: none; }
@@ -554,7 +558,7 @@ pre.err {
   .hero-title { font-size: 2rem; }
 }
 @media (max-width: 440px) {
-  .wrap { padding: 20px 14px 60px; }
+  .wrap { padding: 20px 14px 60px; }  /* override clamp at very narrow widths */
   .hero-title { font-size: 1.7rem; }
 }
 @media (max-width: 375px) {
