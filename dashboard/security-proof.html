@@ -4,17 +4,9 @@
 <meta charset="utf-8">
 <title>Security proof — AgentFence</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- This page merged into docs.html (Security proof section). -->
+<meta http-equiv="refresh" content="0; url=docs.html#security-proof">
 <link rel="stylesheet" href="theme.css">
-<style>
-  section.card { margin-bottom: var(--gap); }
-  .card h3 {
-    margin: 22px 0 8px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--silver);
-  }
-  .card h3:first-of-type { margin-top: 0; }
-</style>
 </head>
 <body>
 <div class="wrap">
@@ -23,73 +15,17 @@
     <a href="index.html" class="nav-brand">AgentFence</a>
     <a href="index.html">Try it</a>
     <a href="live.html">Live log</a>
-    <a href="how-it-works.html">How it works</a>
-    <a href="security-proof.html" class="current">Security proof</a>
-    <a href="developers.html">Developers</a>
+    <a href="docs.html" class="current">Docs</a>
   </nav>
 
-  <header class="hero">
-    <h1 class="hero-title">Security <span class="accent-word">proof</span></h1>
-    <p class="hero-sub">The scoped function-call key, tested against the live contract.</p>
-  </header>
-
-<section class="card">
-  <h2>Four calls the key cannot make</h2>
-
-  <h3>set_policy — refused</h3>
-  <pre>near contract call-function as-transaction agentfence-contract-mpc-39bd5f75.testnet set_policy \
-  file-args ./set_policy.json prepaid-gas '100 TeraGas' attached-deposit '0 NEAR' \
-  sign-as agentfence-agent-9a9635f2.testnet network-config testnet \
-  sign-with-plaintext-private-key &lt;PRIVATE_KEY&gt; send</pre>
-  <pre class="err">Error: Transaction method name &lt;set_policy&gt; isn't allowed by the access key.
-Location: src/transaction_signature_options/send/mod.rs:185</pre>
-
-  <h3>set_paused — refused</h3>
-  <pre>near contract call-function as-transaction agentfence-contract-mpc-39bd5f75.testnet set_paused \
-  file-args ./pause.json prepaid-gas '100 TeraGas' attached-deposit '0 NEAR' \
-  sign-as agentfence-agent-9a9635f2.testnet network-config testnet \
-  sign-with-plaintext-private-key &lt;PRIVATE_KEY&gt; send</pre>
-  <pre class="err">Error: Transaction method name &lt;set_paused&gt; isn't allowed by the access key.
-Location: src/transaction_signature_options/send/mod.rs:185</pre>
-
-  <h3>Direct MPC call (v1.signer-prod.testnet.sign) — refused</h3>
-  <pre>near contract call-function as-transaction v1.signer-prod.testnet sign \
-  file-args ./sign_args.json prepaid-gas '300 TeraGas' attached-deposit '0 NEAR' \
-  sign-as agentfence-agent-9a9635f2.testnet network-config testnet \
-  sign-with-plaintext-private-key &lt;PRIVATE_KEY&gt; send</pre>
-  <pre class="err">Error: Transaction for &lt;v1.signer-prod.testnet&gt; doesn't match the access key for &lt;agentfence-contract-mpc-39bd5f75.testnet&gt;.
-Location: src/transaction_signature_options/send/mod.rs:185</pre>
-  <p class="muted">With the 0.05 NEAR deposit attached the call is refused with
-  the same deposit rule as below, before any signature is made.</p>
-
-  <h3>request_spend with an attached deposit (0.1 NEAR) — refused</h3>
-  <pre>near contract call-function as-transaction agentfence-contract-mpc-39bd5f75.testnet request_spend \
-  file-args ./spend50.json prepaid-gas '100 TeraGas' attached-deposit '0.1 NEAR' \
-  sign-as agentfence-agent-9a9635f2.testnet network-config testnet \
-  sign-with-plaintext-private-key &lt;PRIVATE_KEY&gt; send</pre>
-  <pre class="err">Error: Having a deposit with a function call action is not allowed with a function call access key.
-Location: src/transaction_signature_options/send/mod.rs:185</pre>
-</section>
-
-<section class="card">
-  <h2>Two things the key CAN do: ask, and be answered by policy</h2>
-
-  <p>
-    <span class="badge allowed">Allowed</span>
-  </p>
-  <pre>request_spend("evm:0x1111…1111", 50) → Allowed + MPC signature</pre>
-
-  <p>
-    <span class="badge blocked">Blocked</span>
-  </p>
-  <pre>request_spend("evm:0x1111…1111", 500) → Blocked ("exceeds per_tx_limit")</pre>
-
-  <p class="muted" style="margin-top:14px;">Recorded from a real testnet run; reproduce with
-  <code>scripts/testnet-demo.md</code>.</p>
-</section>
+  <section class="card">
+    <h2>This page moved</h2>
+    <p class="muted" style="margin:0;">
+      Security proof now lives in <a href="docs.html#security-proof">Docs → Security proof</a>.
+    </p>
+  </section>
 
 </div>
-
 <script src="config.js"></script>
 </body>
 </html>

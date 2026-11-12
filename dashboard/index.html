@@ -26,9 +26,9 @@
   .bento-status     { grid-column: 3;     grid-row: 1; }
   .bento-spend      { grid-column: 3;     grid-row: 2; }
   .bento-policy     { grid-column: 1;     grid-row: 3; }
-  .bento-evm        { grid-column: 2 / 4; grid-row: 3; }
+  .bento-evm        { grid-column: 2;     grid-row: 3; }
+  .bento-decisions  { grid-column: 3;     grid-row: 3; }
   .bento-steps      { grid-column: 1 / 4; grid-row: 4; }
-  .bento-decisions  { grid-column: 1 / 4; grid-row: 5; }
 
   /* Tablet */
   @media (max-width: 700px) {
@@ -38,8 +38,8 @@
     .bento-spend      { grid-column: 2;     grid-row: 2; }
     .bento-policy     { grid-column: 1;     grid-row: 3; }
     .bento-evm        { grid-column: 2;     grid-row: 3; }
-    .bento-steps      { grid-column: 1 / 3; grid-row: 4; }
-    .bento-decisions  { grid-column: 1 / 3; grid-row: 5; }
+    .bento-decisions  { grid-column: 1 / 3; grid-row: 4; }
+    .bento-steps      { grid-column: 1 / 3; grid-row: 5; }
   }
 
   /* Single column at 375 px */
@@ -62,9 +62,7 @@
     <a href="index.html" class="nav-brand">AgentFence</a>
     <a href="index.html" class="current">Try it</a>
     <a href="live.html">Live log</a>
-    <a href="how-it-works.html">How it works</a>
-    <a href="security-proof.html">Security proof</a>
-    <a href="developers.html">Developers</a>
+    <a href="docs.html">Docs</a>
   </nav>
 
   <header class="hero hero-glow">
@@ -80,7 +78,7 @@
       <p class="muted" style="margin:0 0 18px;">Simulation using the live on-chain policy. No transaction is sent.</p>
 
       <div class="scenarios" role="group" aria-label="Scenarios">
-        <button type="button" data-scenario="A" aria-pressed="false">Legit invoice</button>
+        <button type="button" data-scenario="A" aria-pressed="true">Legit invoice</button>
         <button type="button" data-scenario="B" aria-pressed="false">Injected: new address</button>
         <button type="button" data-scenario="C" aria-pressed="false">Injected: huge amount</button>
         <button type="button" data-scenario="D" aria-pressed="false">Agent paused</button>
@@ -113,7 +111,7 @@
         <a href="live.html">See real runs in the Live log →</a>
       </p>
       <p class="muted" style="margin:4px 0 0;font-size:0.82rem;">
-        These scenarios were run for real on testnet: see <a href="security-proof.html">Security proof</a>.
+        These scenarios were run for real on testnet: see <a href="docs.html#security-proof">Security proof</a>.
       </p>
     </section>
 
@@ -149,6 +147,15 @@
       <div class="evm-addr" id="stat-evm">—</div>
     </section>
 
+    <!-- ── Last 3 decisions ── -->
+    <section class="card bento-decisions" aria-label="Last 3 decisions" aria-live="polite">
+      <h2>Last 3 decisions</h2>
+      <div class="decisions-list" id="last-decisions">
+        <div class="muted">loading…</div>
+      </div>
+      <div class="updated">last updated: <span id="updated">—</span></div>
+    </section>
+
     <!-- ── Start here guide ── -->
     <section class="card bento-steps" aria-label="Start here">
       <h2>Start here</h2>
@@ -166,15 +173,6 @@
           Every decision is appended to <a href="live.html">Live log</a>.
         </div>
       </div>
-    </section>
-
-    <!-- ── Last 3 decisions ── -->
-    <section class="card bento-decisions" aria-label="Last 3 decisions" aria-live="polite">
-      <h2>Last 3 decisions</h2>
-      <div class="decisions-list" id="last-decisions">
-        <div class="muted">loading…</div>
-      </div>
-      <div class="updated">last updated: <span id="updated">—</span></div>
     </section>
 
   </div><!-- /.bento -->

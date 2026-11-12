@@ -65,9 +65,10 @@ a:hover {
 
 /* ── Wrapper ─────────────────────────────────────────────────────── */
 /* clamp(min, preferred, max) keeps equal side margins at every width.
-   At 1700 px: (1700 - 1400) / 2 = 150 px each side — no empty right strip. */
+   Max-width 1200 px + margin auto: at 1700 px that's (1700 - 1200) / 2
+   = 250 px on each side — no empty strip on the right. */
 .wrap {
-  max-width: 1400px;
+  max-width: 1200px;
   width: 100%;
   margin: 0 auto;
   padding: 32px clamp(20px, 4vw, 60px) 80px;
@@ -549,7 +550,7 @@ pre.err {
   .scenarios button { transition: none; }
 }
 
-/* ── SVG diagram colours (how-it-works) ──────────────────────────── */
+/* ── SVG diagram colours (docs flow diagram) ─────────────────────── */
 /* Applied inline in the SVG; variables cascade into SVG in modern browsers */
 
 /* ── Responsive ──────────────────────────────────────────────────── */

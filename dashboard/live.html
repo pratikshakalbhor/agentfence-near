@@ -21,6 +21,13 @@
   /* Audit main rows clickable */
   tr.audit-main { cursor: pointer; }
   td.toggle-cell { color: var(--muted); user-select: none; }
+
+  /* Tighter audit table so it fills the width */
+  #audit table { font-size: 0.85rem; }
+  #audit th, #audit td { padding: 6px 8px; }
+  /* Zebra rows: each entry renders a main row + a (hidden) detail row,
+     so the main rows fall on tbody positions 1, 3, 5, 7, … */
+  #audit tbody tr.audit-main:nth-child(4n+1) { background: rgba(205,203,202,0.035); }
 </style>
 </head>
 <body>
@@ -30,9 +37,7 @@
     <a href="index.html" class="nav-brand">AgentFence</a>
     <a href="index.html">Try it</a>
     <a href="live.html" class="current">Live log</a>
-    <a href="how-it-works.html">How it works</a>
-    <a href="security-proof.html">Security proof</a>
-    <a href="developers.html">Developers</a>
+    <a href="docs.html">Docs</a>
   </nav>
 
   <header class="hero">
@@ -52,7 +57,7 @@
       <h2>Spend today</h2>
       <div id="spent" class="muted">loading…</div>
       <div class="bar"><div id="spent-fill"></div></div>
-      <div class="muted" id="spent-sub">wei · ETH shown alongside</div>
+      <div class="muted" id="spent-sub">Amounts in wei, shown as ETH</div>
     </section>
   </div>
 

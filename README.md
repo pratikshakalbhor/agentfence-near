@@ -88,7 +88,8 @@ The daily window is `block_timestamp / 86_400_000_000_000` (UTC days).
 
 The refused calls above were run for real against the deployed contract. The
 exact error text is in [`scripts/testnet-demo.md`](scripts/testnet-demo.md)
-under "Bypass proof: scoped key" and on the dashboard "Security proof" page.
+under "Bypass proof: scoped key" and in the dashboard
+[Docs](dashboard/docs.html#security-proof) page under "Security proof".
 
 ## Evidence
 
@@ -138,7 +139,7 @@ sdk/         TypeScript SDK (agentfence-sdk)
 agent/       LLM payment agent + prompt-injection demo
 mcp/         MCP server (stdio) exposing the agent tools
 cli/         `agentfence` command line tool
-dashboard/   Static HTML/JS: Try it, Live log, How it works, Security proof, Developers
+dashboard/   Static HTML/JS: Try it, Live log, Docs
 scripts/     Testnet runbook, EVM derive/send scripts, hash verification
 docs/        Architecture, demo output, real broadcast transcript
 ```

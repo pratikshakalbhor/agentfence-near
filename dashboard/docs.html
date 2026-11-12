@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Docs — AgentFence</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Docs: how-it-works.html + security-proof.html + developers.html in one page.
+  Section content is copied verbatim from those files; the MCP and CLI
+  snippets come from README.md. Serve: npx serve dashboard
+-->
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* ── At a glance strip ─────────────────────────────────────────── */
+  .strip-label {
+    margin: 0 0 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .glance {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--gap);
+    margin-bottom: calc(var(--gap) * 1.5);
+  }
+  .glance-card {
+    margin: 0;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    text-decoration: none;
+  }
+  a.glance-card:hover { border-color: var(--border-hover); background: var(--card-2); }
+  .glance-num {
+    font-size: 1.7rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--silver);
+  }
+  .glance-txt {
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+
+  /* ── Two-column docs layout ────────────────────────────────────── */
+  .docs-layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: calc(var(--gap) * 1.25);
+    align-items: start;
+    margin-bottom: var(--gap);
+  }
+
+  /* Left: sticky table of contents (plain anchors — works without JS) */
+  .toc {
+    position: sticky;
+    top: 20px;
+    padding: 18px;
+  }
+  .toc a {
+    display: block;
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.86rem;
+    line-height: 1.4;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .toc a:hover { color: var(--silver); background: rgba(205,203,202,0.06); }
+  /* Active section, set by IntersectionObserver when available */
+  .toc a.is-active {
+    color: var(--silver);
+    background: rgba(205,203,202,0.12);
+    border-color: var(--border);
+    font-weight: 600;
+  }
+
+  /* Right: sections */
+  .doc-section {
+    margin-bottom: calc(var(--gap) * 1.5);
+    scroll-margin-top: 20px;
+  }
+  .sec-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .sec-num {
+    flex: 0 0 auto;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 10px;
+    box-shadow: inset 0 1px 0 var(--inner-hl);
+  }
+  .doc-section .sec-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: var(--silver);
+  }
+  .sec-summary {
+    margin: 0 0 20px;
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+  /* Keep the original sub-heading look inside sections */
+  .sec-body > h2 { margin-top: 26px; }
+  .sec-body > h2:first-child { margin-top: 0; }
+  .sec-body h3 {
+    margin: 22px 0 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--silver);
+  }
+  .sec-body h3:first-child { margin-top: 0; }
+  .sec-body ol { margin: 0; padding-left: 24px; }
+  .sec-body ol li { margin-bottom: 16px; }
+  .sec-body ol li strong { display: block; margin-bottom: 2px; color: var(--silver); }
+  .sec-body ul { margin: 0; padding-left: 22px; }
+  .sec-body ul li { margin-bottom: 10px; font-size: 0.92rem; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toc a { transition: none; }
+  }
+
+  /* ── Under 800 px: TOC becomes a horizontal chip row on top ────── */
+  @media (max-width: 800px) {
+    .docs-layout { grid-template-columns: 1fr; }
+    .toc {
+      position: static;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .toc h2 { display: none; }
+    .toc a {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 14px;
+    }
+    .toc a.is-active {
+      background: var(--silver);
+      border-color: var(--silver);
+      color: #0a0a0a;
+    }
+  }
+  @media (max-width: 900px) {
+    .glance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 440px) {
+    .glance { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav aria-label="Main">
+    <a href="index.html" class="nav-brand">AgentFence</a>
+    <a href="index.html">Try it</a>
+    <a href="live.html">Live log</a>
+    <a href="docs.html" class="current">Docs</a>
+  </nav>
+
+  <header class="hero">
+    <h1 class="hero-title">Docs</h1>
+    <p class="hero-sub">The agent can ask. The contract decides.</p>
+  </header>
+
+  <!-- ── At a glance (facts from the repo — no invented numbers) ── -->
+  <h2 class="strip-label">At a glance</h2>
+  <div class="glance">
+    <div class="card glance-card">
+      <span class="glance-num">1</span>
+      <span class="glance-txt">method the agent can call (request_spend)</span>
+    </div>
+    <div class="card glance-card">
+      <span class="glance-num">8</span>
+      <span class="glance-txt">on-chain checks per request</span>
+    </div>
+    <div class="card glance-card">
+      <span class="glance-num">4</span>
+      <span class="glance-txt">calls refused by the access key</span>
+    </div>
+    <a class="card glance-card"
+       href="https://sepolia.etherscan.io/tx/0x388bc60903b143229dfdd9b3000c10b0a051d3a61668e340aaa7d45799608126"
+       target="_blank" rel="noopener">
+      <span class="glance-txt">Real Sepolia tx:</span>
+      <span class="glance-num">success</span>
+    </a>
+  </div>
+
+  <div class="docs-layout">
+
+    <!-- ── Left: table of contents ── -->
+    <nav class="card toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <a href="#how-it-works">How it works</a>
+      <a href="#bypass">Why the agent cannot bypass the policy</a>
+      <a href="#security-proof">Security proof</a>
+      <a href="#developers">For developers</a>
+    </nav>
+
+    <!-- ── Right: sections ── -->
+    <main class="docs-main">
+
+      <!-- ── 01 How it works ── -->
+      <section class="card doc-section" id="how-it-works">
+        <div class="sec-head">
+          <span class="sec-num">01</span>
+          <h2 class="sec-title">How it works</h2>
+        </div>
+        <p class="sec-summary">The agent can ask. The contract decides.</p>
+        <div class="sec-body">
+          <h3>Real flow</h3>
+          <!--
+            SVG uses the theme palette:
+              • Boxes / lines: --silver / --muted strokes
+              • Blocked path:  --crimson
+              • Allowed / ok:  --green
+          -->
+          <svg viewBox="0 0 920 560" role="img" aria-label="Flow diagram" style="max-height:520px;">
+            <defs>
+              <marker id="arrow-muted" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#8a8987"/>
+              </marker>
+              <marker id="arrow-crimson" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#D41514"/>
+              </marker>
+              <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#3DDC84"/>
+              </marker>
+            </defs>
+
+            <!-- ── Boxes ─────────────────────────────────────────── -->
+            <!-- LLM agent -->
+            <rect x="10" y="30" width="170" height="110" rx="12" fill="#111111" stroke="#CDCBCA" stroke-opacity="0.18"/>
+            <text x="95" y="56" text-anchor="middle" font-size="14" fill="#CDCBCA" font-weight="600">LLM agent</text>
+            <text x="95" y="78" text-anchor="middle" font-size="11" fill="#8a8987">function-call key</text>
+            <text x="95" y="96" text-anchor="middle" font-size="11" fill="#8a8987">may call only</text>
+            <text x="95" y="118" text-anchor="middle" font-size="12" fill="#CDCBCA" font-weight="700">request_spend</text>
+
+            <!-- agentfence contract -->
+            <rect x="320" y="30" width="200" height="110" rx="12" fill="#111111" stroke="#CDCBCA" stroke-opacity="0.18"/>
+            <text x="420" y="56" text-anchor="middle" font-size="14" fill="#CDCBCA" font-weight="600">agentfence contract</text>
+            <text x="420" y="78" text-anchor="middle" font-size="11" fill="#8a8987">policy check</text>
+            <text x="420" y="98" text-anchor="middle" font-size="11" fill="#8a8987">spend reserved +</text>
+            <text x="420" y="118" text-anchor="middle" font-size="11" fill="#8a8987">audit entry on Allowed</text>
+
+            <!-- Blocked -->
+            <rect x="320" y="200" width="200" height="70" rx="12" fill="#1a0808" stroke="#D41514" stroke-opacity="0.50"/>
+            <text x="420" y="228" text-anchor="middle" font-size="14" fill="#CDCBCA" font-weight="600">Blocked</text>
+            <text x="420" y="250" text-anchor="middle" font-size="11" fill="#D41514">written to audit log</text>
+
+            <!-- MPC contract -->
+            <rect x="620" y="30" width="240" height="110" rx="12" fill="#111111" stroke="#CDCBCA" stroke-opacity="0.18"/>
+            <text x="740" y="56" text-anchor="middle" font-size="14" fill="#CDCBCA" font-weight="600">MPC contract</text>
+            <text x="740" y="78" text-anchor="middle" font-size="11" fill="#8a8987">v1.signer-prod.testnet</text>
+            <text x="740" y="98" text-anchor="middle" font-size="12" fill="#CDCBCA">sign(payload_v2)</text>
+            <text x="740" y="118" text-anchor="middle" font-size="11" fill="#8a8987">called BY the contract</text>
+
+            <!-- Sepolia -->
+            <rect x="620" y="330" width="240" height="120" rx="12" fill="#081208" stroke="#3DDC84" stroke-opacity="0.40"/>
+            <text x="740" y="356" text-anchor="middle" font-size="14" fill="#CDCBCA" font-weight="600">Sepolia (EVM)</text>
+            <text x="740" y="378" text-anchor="middle" font-size="11" fill="#8a8987">signed EIP-1559 tx</text>
+            <text x="740" y="398" text-anchor="middle" font-size="11" fill="#8a8987">from derived address —</text>
+            <text x="740" y="418" text-anchor="middle" font-size="11" fill="#3DDC84">belongs to the CONTRACT</text>
+
+            <!-- Derived address -->
+            <rect x="320" y="330" width="200" height="120" rx="12" fill="#111111" stroke="#CDCBCA" stroke-opacity="0.18"/>
+            <text x="420" y="356" text-anchor="middle" font-size="12" fill="#CDCBCA">derived address</text>
+            <text x="420" y="378" text-anchor="middle" font-size="10" fill="#8a8987">evm-sepolia-&lt;agent&gt;</text>
+            <text x="420" y="398" text-anchor="middle" font-size="10" fill="#8a8987">caller = contract,</text>
+            <text x="420" y="418" text-anchor="middle" font-size="10" fill="#8a8987">not the agent</text>
+
+            <!-- Owner -->
+            <rect x="10" y="200" width="170" height="70" rx="12" fill="#111111" stroke="#CDCBCA" stroke-opacity="0.18"/>
+            <text x="95" y="226" text-anchor="middle" font-size="14" fill="#CDCBCA" font-weight="600">Owner</text>
+            <text x="95" y="248" text-anchor="middle" font-size="11" fill="#8a8987">limits via near CLI</text>
+
+            <!-- ── Arrows ──────────────────────────────────────── -->
+            <!-- Agent → contract -->
+            <line x1="180" y1="85" x2="312" y2="85" stroke="#8a8987" stroke-width="1.5" marker-end="url(#arrow-muted)"/>
+            <text x="246" y="75" text-anchor="middle" font-size="11" fill="#8a8987">request_spend</text>
+
+            <!-- contract → Blocked (crimson) -->
+            <line x1="420" y1="140" x2="420" y2="196" stroke="#D41514" stroke-width="1.5" marker-end="url(#arrow-crimson)"/>
+            <text x="432" y="175" font-size="11" fill="#D41514">policy violation</text>
+
+            <!-- contract → MPC -->
+            <line x1="520" y1="85" x2="612" y2="85" stroke="#8a8987" stroke-width="1.5" marker-end="url(#arrow-muted)"/>
+            <text x="566" y="75" text-anchor="middle" font-size="11" fill="#8a8987">policy ok</text>
+
+            <!-- MPC → sign -->
+            <line x1="740" y1="140" x2="740" y2="200" stroke="#8a8987" stroke-width="1.5" marker-end="url(#arrow-muted)"/>
+            <text x="750" y="175" font-size="11" fill="#8a8987">sign()</text>
+
+            <!-- MPC → Sepolia (green) -->
+            <line x1="740" y1="270" x2="740" y2="326" stroke="#3DDC84" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+            <text x="756" y="300" font-size="11" fill="#3DDC84">signature →</text>
+
+            <!-- Owner → contract -->
+            <path d="M 140 198 C 200 170 250 160 310 150" fill="none" stroke="#8a8987" stroke-width="1.5" marker-end="url(#arrow-muted)"/>
+            <text x="222" y="158" text-anchor="middle" font-size="10" fill="#8a8987">set_policy · add_destination</text>
+            <text x="222" y="174" text-anchor="middle" font-size="10" fill="#8a8987">set_paused</text>
+
+            <!-- derived → Sepolia -->
+            <line x1="520" y1="390" x2="612" y2="390" stroke="#8a8987" stroke-width="1.5" marker-end="url(#arrow-muted)"/>
+            <text x="566" y="380" text-anchor="middle" font-size="11" fill="#8a8987">signed tx</text>
+
+            <!-- Footer notes -->
+            <text x="10" y="490" font-size="11" fill="#8a8987">Derived EVM address (0x44c8…ea57) belongs to the CONTRACT: the MPC sign caller is the contract account,</text>
+            <text x="10" y="508" font-size="11" fill="#8a8987">path is evm-sepolia-&lt;agent&gt; (scripts/evm/derive-address.mjs). Limits, allowlist, pause and audit log live in the contract.</text>
+            <text x="10" y="526" font-size="11" fill="#8a8987">Payload hash verified byte-for-byte against viem (scripts/verify-hash).</text>
+          </svg>
+        </div>
+      </section>
+
+      <!-- ── 02 Why the agent cannot bypass the policy ── -->
+      <section class="card doc-section" id="bypass">
+        <div class="sec-head">
+          <span class="sec-num">02</span>
+          <h2 class="sec-title">Why the agent cannot bypass the policy</h2>
+        </div>
+        <p class="sec-summary">Four reasons the scoped function-call key cannot move money on its own.</p>
+        <div class="sec-body">
+          <ol>
+            <li>
+              <strong>Function-call key scope.</strong>
+              The agent's NEAR key is a function-call access key scoped to
+              <code>request_spend</code> on the agentfence contract, allowance 1 NEAR,
+              no deposit. Calling anything else is refused by NEAR's access keys
+              before the transaction is sent (live-verified — see the
+              <a href="#security-proof">Security proof</a> page).
+            </li>
+            <li>
+              <strong>MPC address derives from the contract account.</strong>
+              The MPC <code>sign</code> caller is the <em>contract</em>, and the path is
+              <code>evm-sepolia-&lt;agent&gt;</code>. A direct MPC call by the agent would
+              derive against the agent's account and sign for a different address —
+              one the fence never uses.
+            </li>
+            <li>
+              <strong><code>to</code> / <code>value</code> / <code>chain_id</code> are built
+              inside the contract.</strong>
+              The signed EIP-1559 transaction is assembled in the contract from the
+              policy-checked <code>destination</code> and <code>amount</code>; the agent
+              supplies only <code>nonce</code> and fees, and fees are capped.
+            </li>
+            <li>
+              <strong>The payload hash is independently verified.</strong>
+              The contract's keccak256 signing hash matches a throwaway viem
+              implementation byte-for-byte (<code>scripts/verify-hash/</code>).
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- ── 03 Security proof ── -->
+      <section class="card doc-section" id="security-proof">
+        <div class="sec-head">
+          <span class="sec-num">03</span>
+          <h2 class="sec-title">Security proof</h2>
+        </div>
+        <p class="sec-summary">The scoped function-call key, tested against the live contract.</p>
+        <div class="sec-body">
+          <h2>Four calls the key cannot make</h2>
+
+          <h3>set_policy — refused</h3>
+          <pre>near contract call-function as-transaction agentfence-contract-mpc-39bd5f75.testnet set_policy \
+  file-args ./set_policy.json prepaid-gas '100 TeraGas' attached-deposit '0 NEAR' \
+  sign-as agentfence-agent-9a9635f2.testnet network-config testnet \
+  sign-with-plaintext-private-key &lt;PRIVATE_KEY&gt; send</pre>
+          <pre class="err">Error: Transaction method name &lt;set_policy&gt; isn't allowed by the access key.
+Location: src/transaction_signature_options/send/mod.rs:185</pre>
+
+          <h3>set_paused — refused</h3>
+          <pre>near contract call-function as-transaction agentfence-contract-mpc-39bd5f75.testnet set_paused \
+  file-args ./pause.json prepaid-gas '100 TeraGas' attached-deposit '0 NEAR' \
+  sign-as agentfence-agent-9a9635f2.testnet network-config testnet \
+  sign-with-plaintext-private-key &lt;PRIVATE_KEY&gt; send</pre>
+          <pre class="err">Error: Transaction method name &lt;set_paused&gt; isn't allowed by the access key.
+Location: src/transaction_signature_options/send/mod.rs:185</pre>
+
+          <h3>Direct MPC call (v1.signer-prod.testnet.sign) — refused</h3>
+          <pre>near contract call-function as-transaction v1.signer-prod.testnet sign \
+  file-args ./sign_args.json prepaid-gas '300 TeraGas' attached-deposit '0 NEAR' \
+  sign-as agentfence-agent-9a9635f2.testnet network-config testnet \
+  sign-with-plaintext-private-key &lt;PRIVATE_KEY&gt; send</pre>
+          <pre class="err">Error: Transaction for &lt;v1.signer-prod.testnet&gt; doesn't match the access key for &lt;agentfence-contract-mpc-39bd5f75.testnet&gt;.
+Location: src/transaction_signature_options/send/mod.rs:185</pre>
+          <p class="muted">With the 0.05 NEAR deposit attached the call is refused with
+          the same deposit rule as below, before any signature is made.</p>
+
+          <h3>request_spend with an attached deposit (0.1 NEAR) — refused</h3>
+          <pre>near contract call-function as-transaction agentfence-contract-mpc-39bd5f75.testnet request_spend \
+  file-args ./spend50.json prepaid-gas '100 TeraGas' attached-deposit '0.1 NEAR' \
+  sign-as agentfence-agent-9a9635f2.testnet network-config testnet \
+  sign-with-plaintext-private-key &lt;PRIVATE_KEY&gt; send</pre>
+          <pre class="err">Error: Having a deposit with a function call action is not allowed with a function call access key.
+Location: src/transaction_signature_options/send/mod.rs:185</pre>
+
+          <h2>Two things the key CAN do: ask, and be answered by policy</h2>
+
+          <p>
+            <span class="badge allowed">Allowed</span>
+          </p>
+          <pre>request_spend("evm:0x1111…1111", 50) → Allowed + MPC signature</pre>
+
+          <p>
+            <span class="badge blocked">Blocked</span>
+          </p>
+          <pre>request_spend("evm:0x1111…1111", 500) → Blocked ("exceeds per_tx_limit")</pre>
+
+          <p class="muted" style="margin-top:14px;">Recorded from a real testnet run; reproduce with
+          <code>scripts/testnet-demo.md</code>.</p>
+        </div>
+      </section>
+
+      <!-- ── 04 For developers ── -->
+      <section class="card doc-section" id="developers">
+        <div class="sec-head">
+          <span class="sec-num">04</span>
+          <h2 class="sec-title">For developers</h2>
+        </div>
+        <p class="sec-summary">Use the TypeScript SDK — five lines.</p>
+        <div class="sec-body">
+          <div class="copyrow">
+            <h2 style="margin:0;">Quickstart (SDK)</h2>
+            <button id="copy-sdk" class="btn btn-outline">Copy</button>
+          </div>
+          <pre id="sdk-code">import { AgentFence } from 'agentfence-sdk';
+
+const fence = new AgentFence({
+  network: 'testnet',
+  contractAccount: 'agentfence-contract-evm-0b497ae1.testnet',
+  agentAccount: 'agentfence-agent-9a9635f2.testnet',
+  agentKeyFile: process.env.AGENT_FCK_KEY_FILE!,
+});
+
+const { address } = await fence.deriveAddress();
+const result = await fence.pay({ to: '0x1111111111111111111111111111111111111111', amountWei: 1_000_000_000_000_000n });
+console.log(result.decision, result.reason ?? '');</pre>
+          <p class="muted" style="margin-top:10px;font-size:0.88rem;">Install from this repo: <code>npm install ./sdk</code> (not published to npm).</p>
+
+          <h2>API</h2>
+          <table>
+            <thead><tr><th>Method</th><th>Returns</th></tr></thead>
+            <tbody>
+              <tr><td><code>deriveAddress()</code></td><td><code>{ address, publicKey }</code></td></tr>
+              <tr><td><code>getPolicy()</code></td><td><code>Policy | null</code></td></tr>
+              <tr><td><code>getSpentToday()</code></td><td><code>bigint</code> (wei)</td></tr>
+              <tr><td><code>getAuditLog({ from, limit })</code></td><td><code>AuditEntry[]</code></td></tr>
+              <tr><td><code>preview(args)</code></td><td><code>{ payloadHash } | null</code></td></tr>
+              <tr><td><code>pay({ to, amountWei, broadcast? })</code></td><td><code>PayResult</code></td></tr>
+            </tbody>
+          </table>
+
+          <h2>MCP server</h2>
+          <p>A standard stdio MCP server. Example client entry:</p>
+          <pre>{
+  "mcpServers": {
+    "agentfence": {
+      "command": "npx",
+      "args": ["tsx", "mcp/src/index.ts"],
+      "env": {
+        "CONTRACT_ACCOUNT": "agentfence-contract-evm-0b497ae1.testnet",
+        "AGENT_ACCOUNT": "agentfence-agent-9a9635f2.testnet",
+        "AGENT_FCK_KEY_FILE": "/absolute/path/to/function-call-key.txt"
+      }
+    }
+  }
+}</pre>
+          <p>Tools: <code>pay</code>, <code>get_policy</code>, <code>get_spent_today</code>, <code>get_audit_log</code>, <code>get_address</code>.
+<code>pay</code> never broadcasts unless the server starts with <code>--allow-broadcast</code>.
+A <code>Blocked</code> decision is a normal tool result, not an MCP error.</p>
+
+          <h2>CLI</h2>
+          <pre>agentfence status
+agentfence audit --limit 10
+agentfence apply agentfence.policy.json --dry-run
+agentfence apply agentfence.policy.json --yes
+agentfence pause --yes
+agentfence resume --yes
+agentfence pay 0x1111111111111111111111111111111111111111 1000000000000000</pre>
+          <p>Owner-signed calls go through the <code>near</code> CLI with the owner key in your
+keychain. This tool never reads or stores owner keys.</p>
+
+          <h2>Honest limitations</h2>
+          <ul>
+            <li>Spend is reserved when the signature is requested, not when the transaction is mined; a failed broadcast does not refund it.</li>
+            <li>Testnet only. ETH on Sepolia only.</li>
+            <li>No TEE — the MPC is the trust root.</li>
+            <li>An allowlisted destination is trusted; the fence constrains the agent, not the supplier.</li>
+            <li>The owner key is a single key (no multisig).</li>
+            <li>The injection demo uses <code>--force-tool-call</code> to simulate a compromised model unless run with a real LLM (<code>agent/src/agent.ts</code>).</li>
+            <li>The derived EVM address changes if the contract is redeployed to a new account.</li>
+          </ul>
+        </div>
+      </section>
+
+    </main>
+
+  </div><!-- /.docs-layout -->
+
+</div><!-- /.wrap -->
+
+<script src="config.js"></script>
+<script>
+(function () {
+  // Copy button for the SDK quickstart (same behaviour as the old
+  // developers.html page).
+  var codeEl = document.getElementById('sdk-code');
+  var copyBtn = document.getElementById('copy-sdk');
+  if (codeEl && copyBtn) {
+    var code = codeEl.textContent;
+    copyBtn.addEventListener('click', async function (e) {
+      try { await navigator.clipboard.writeText(code); }
+      catch (_) {
+        var ta = document.createElement('textarea');
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      var b = e.currentTarget;
+      b.textContent = 'Copied';
+      setTimeout(function () { b.textContent = 'Copy'; }, 1500);
+    });
+  }
+
+  // TOC active-state highlighting. The links are plain anchors and work
+  // without this; IntersectionObserver only adds the highlight.
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a[href^="#"]'));
+  if (!links.length || !('IntersectionObserver' in window)) return;
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+  var currentId = null;
+  function setActive(id) {
+    if (id === currentId || !byId[id]) return;
+    currentId = id;
+    links.forEach(function (a) { a.classList.toggle('is-active', a === byId[id]); });
+  }
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) setActive(entry.target.id);
+    });
+  }, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
+  Object.keys(byId).forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) observer.observe(el);
+  });
+  setActive((location.hash && byId[location.hash.slice(1)]) ? location.hash.slice(1) : 'how-it-works');
+})();
+</script>
+</body>
+</html>

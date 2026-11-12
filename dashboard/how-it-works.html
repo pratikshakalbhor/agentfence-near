@@ -4,19 +4,9 @@
 <meta charset="utf-8">
 <title>How it works — AgentFence</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- This page merged into docs.html (section + bypass section). -->
+<meta http-equiv="refresh" content="0; url=docs.html#how-it-works">
 <link rel="stylesheet" href="theme.css">
-<style>
-  /* SVG uses fill="currentColor" classes; override per theme */
-  .svg-muted  { fill: var(--muted); }
-  .svg-silver { fill: var(--silver); }
-  .svg-green  { fill: var(--green); }
-  .svg-crimson{ fill: var(--crimson); }
-
-  ol { margin: 0; padding-left: 24px; }
-  ol li { margin-bottom: 16px; }
-  ol li strong { display: block; margin-bottom: 2px; color: var(--silver); }
-  section.card { margin-bottom: var(--gap); }
-</style>
 </head>
 <body>
 <div class="wrap">
@@ -25,155 +15,19 @@
     <a href="index.html" class="nav-brand">AgentFence</a>
     <a href="index.html">Try it</a>
     <a href="live.html">Live log</a>
-    <a href="how-it-works.html" class="current">How it works</a>
-    <a href="security-proof.html">Security proof</a>
-    <a href="developers.html">Developers</a>
+    <a href="docs.html" class="current">Docs</a>
   </nav>
 
-  <header class="hero">
-    <h1 class="hero-title">How it <span class="accent-word">works</span></h1>
-    <p class="hero-sub">The agent can ask. The contract decides.</p>
-  </header>
-
-<section class="card">
-  <h2>Real flow</h2>
-  <!--
-    SVG uses the theme palette:
-      • Boxes / lines: --silver / --muted strokes
-      • Blocked path:  --crimson
-      • Allowed / ok:  --green
-  -->
-  <svg viewBox="0 0 920 560" role="img" aria-label="Flow diagram" style="max-height:520px;">
-    <defs>
-      <marker id="arrow-muted" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-        <path d="M0,0 L8,4 L0,8 Z" fill="#8a8987"/>
-      </marker>
-      <marker id="arrow-crimson" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-        <path d="M0,0 L8,4 L0,8 Z" fill="#D41514"/>
-      </marker>
-      <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-        <path d="M0,0 L8,4 L0,8 Z" fill="#3DDC84"/>
-      </marker>
-    </defs>
-
-    <!-- ── Boxes ─────────────────────────────────────────── -->
-    <!-- LLM agent -->
-    <rect x="10" y="30" width="170" height="110" rx="12" fill="#111111" stroke="#CDCBCA" stroke-opacity="0.18"/>
-    <text x="95" y="56" text-anchor="middle" font-size="14" fill="#CDCBCA" font-weight="600">LLM agent</text>
-    <text x="95" y="78" text-anchor="middle" font-size="11" fill="#8a8987">function-call key</text>
-    <text x="95" y="96" text-anchor="middle" font-size="11" fill="#8a8987">may call only</text>
-    <text x="95" y="118" text-anchor="middle" font-size="12" fill="#CDCBCA" font-weight="700">request_spend</text>
-
-    <!-- agentfence contract -->
-    <rect x="320" y="30" width="200" height="110" rx="12" fill="#111111" stroke="#CDCBCA" stroke-opacity="0.18"/>
-    <text x="420" y="56" text-anchor="middle" font-size="14" fill="#CDCBCA" font-weight="600">agentfence contract</text>
-    <text x="420" y="78" text-anchor="middle" font-size="11" fill="#8a8987">policy check</text>
-    <text x="420" y="98" text-anchor="middle" font-size="11" fill="#8a8987">spend reserved +</text>
-    <text x="420" y="118" text-anchor="middle" font-size="11" fill="#8a8987">audit entry on Allowed</text>
-
-    <!-- Blocked -->
-    <rect x="320" y="200" width="200" height="70" rx="12" fill="#1a0808" stroke="#D41514" stroke-opacity="0.50"/>
-    <text x="420" y="228" text-anchor="middle" font-size="14" fill="#CDCBCA" font-weight="600">Blocked</text>
-    <text x="420" y="250" text-anchor="middle" font-size="11" fill="#D41514">written to audit log</text>
-
-    <!-- MPC contract -->
-    <rect x="620" y="30" width="240" height="110" rx="12" fill="#111111" stroke="#CDCBCA" stroke-opacity="0.18"/>
-    <text x="740" y="56" text-anchor="middle" font-size="14" fill="#CDCBCA" font-weight="600">MPC contract</text>
-    <text x="740" y="78" text-anchor="middle" font-size="11" fill="#8a8987">v1.signer-prod.testnet</text>
-    <text x="740" y="98" text-anchor="middle" font-size="12" fill="#CDCBCA">sign(payload_v2)</text>
-    <text x="740" y="118" text-anchor="middle" font-size="11" fill="#8a8987">called BY the contract</text>
-
-    <!-- Sepolia -->
-    <rect x="620" y="330" width="240" height="120" rx="12" fill="#081208" stroke="#3DDC84" stroke-opacity="0.40"/>
-    <text x="740" y="356" text-anchor="middle" font-size="14" fill="#CDCBCA" font-weight="600">Sepolia (EVM)</text>
-    <text x="740" y="378" text-anchor="middle" font-size="11" fill="#8a8987">signed EIP-1559 tx</text>
-    <text x="740" y="398" text-anchor="middle" font-size="11" fill="#8a8987">from derived address —</text>
-    <text x="740" y="418" text-anchor="middle" font-size="11" fill="#3DDC84">belongs to the CONTRACT</text>
-
-    <!-- Derived address -->
-    <rect x="320" y="330" width="200" height="120" rx="12" fill="#111111" stroke="#CDCBCA" stroke-opacity="0.18"/>
-    <text x="420" y="356" text-anchor="middle" font-size="12" fill="#CDCBCA">derived address</text>
-    <text x="420" y="378" text-anchor="middle" font-size="10" fill="#8a8987">evm-sepolia-&lt;agent&gt;</text>
-    <text x="420" y="398" text-anchor="middle" font-size="10" fill="#8a8987">caller = contract,</text>
-    <text x="420" y="418" text-anchor="middle" font-size="10" fill="#8a8987">not the agent</text>
-
-    <!-- Owner -->
-    <rect x="10" y="200" width="170" height="70" rx="12" fill="#111111" stroke="#CDCBCA" stroke-opacity="0.18"/>
-    <text x="95" y="226" text-anchor="middle" font-size="14" fill="#CDCBCA" font-weight="600">Owner</text>
-    <text x="95" y="248" text-anchor="middle" font-size="11" fill="#8a8987">limits via near CLI</text>
-
-    <!-- ── Arrows ──────────────────────────────────────── -->
-    <!-- Agent → contract -->
-    <line x1="180" y1="85" x2="312" y2="85" stroke="#8a8987" stroke-width="1.5" marker-end="url(#arrow-muted)"/>
-    <text x="246" y="75" text-anchor="middle" font-size="11" fill="#8a8987">request_spend</text>
-
-    <!-- contract → Blocked (crimson) -->
-    <line x1="420" y1="140" x2="420" y2="196" stroke="#D41514" stroke-width="1.5" marker-end="url(#arrow-crimson)"/>
-    <text x="432" y="175" font-size="11" fill="#D41514">policy violation</text>
-
-    <!-- contract → MPC -->
-    <line x1="520" y1="85" x2="612" y2="85" stroke="#8a8987" stroke-width="1.5" marker-end="url(#arrow-muted)"/>
-    <text x="566" y="75" text-anchor="middle" font-size="11" fill="#8a8987">policy ok</text>
-
-    <!-- MPC → sign -->
-    <line x1="740" y1="140" x2="740" y2="200" stroke="#8a8987" stroke-width="1.5" marker-end="url(#arrow-muted)"/>
-    <text x="750" y="175" font-size="11" fill="#8a8987">sign()</text>
-
-    <!-- MPC → Sepolia (green) -->
-    <line x1="740" y1="270" x2="740" y2="326" stroke="#3DDC84" stroke-width="1.5" marker-end="url(#arrow-green)"/>
-    <text x="756" y="300" font-size="11" fill="#3DDC84">signature →</text>
-
-    <!-- Owner → contract -->
-    <path d="M 140 198 C 200 170 250 160 310 150" fill="none" stroke="#8a8987" stroke-width="1.5" marker-end="url(#arrow-muted)"/>
-    <text x="222" y="158" text-anchor="middle" font-size="10" fill="#8a8987">set_policy · add_destination</text>
-    <text x="222" y="174" text-anchor="middle" font-size="10" fill="#8a8987">set_paused</text>
-
-    <!-- derived → Sepolia -->
-    <line x1="520" y1="390" x2="612" y2="390" stroke="#8a8987" stroke-width="1.5" marker-end="url(#arrow-muted)"/>
-    <text x="566" y="380" text-anchor="middle" font-size="11" fill="#8a8987">signed tx</text>
-
-    <!-- Footer notes -->
-    <text x="10" y="490" font-size="11" fill="#8a8987">Derived EVM address (0x44c8…ea57) belongs to the CONTRACT: the MPC sign caller is the contract account,</text>
-    <text x="10" y="508" font-size="11" fill="#8a8987">path is evm-sepolia-&lt;agent&gt; (scripts/evm/derive-address.mjs). Limits, allowlist, pause and audit log live in the contract.</text>
-    <text x="10" y="526" font-size="11" fill="#8a8987">Payload hash verified byte-for-byte against viem (scripts/verify-hash).</text>
-  </svg>
-</section>
-
-<section class="card">
-  <h2>Why the agent cannot bypass the policy</h2>
-  <ol>
-    <li>
-      <strong>Function-call key scope.</strong>
-      The agent's NEAR key is a function-call access key scoped to
-      <code>request_spend</code> on the agentfence contract, allowance 1 NEAR,
-      no deposit. Calling anything else is refused by NEAR's access keys
-      before the transaction is sent (live-verified — see the
-      <a href="security-proof.html">Security proof</a> page).
-    </li>
-    <li>
-      <strong>MPC address derives from the contract account.</strong>
-      The MPC <code>sign</code> caller is the <em>contract</em>, and the path is
-      <code>evm-sepolia-&lt;agent&gt;</code>. A direct MPC call by the agent would
-      derive against the agent's account and sign for a different address —
-      one the fence never uses.
-    </li>
-    <li>
-      <strong><code>to</code> / <code>value</code> / <code>chain_id</code> are built
-      inside the contract.</strong>
-      The signed EIP-1559 transaction is assembled in the contract from the
-      policy-checked <code>destination</code> and <code>amount</code>; the agent
-      supplies only <code>nonce</code> and fees, and fees are capped.
-    </li>
-    <li>
-      <strong>The payload hash is independently verified.</strong>
-      The contract's keccak256 signing hash matches a throwaway viem
-      implementation byte-for-byte (<code>scripts/verify-hash/</code>).
-    </li>
-  </ol>
-</section>
+  <section class="card">
+    <h2>This page moved</h2>
+    <p class="muted" style="margin:0;">
+      How it works now lives in <a href="docs.html#how-it-works">Docs → How it works</a>,
+      and “Why the agent cannot bypass the policy” in
+      <a href="docs.html#bypass">Docs → Why the agent cannot bypass the policy</a>.
+    </p>
+  </section>
 
 </div>
-
 <script src="config.js"></script>
 </body>
 </html>

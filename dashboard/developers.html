@@ -4,12 +4,9 @@
 <meta charset="utf-8">
 <title>Developers — AgentFence</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- This page merged into docs.html (For developers section). -->
+<meta http-equiv="refresh" content="0; url=docs.html#developers">
 <link rel="stylesheet" href="theme.css">
-<style>
-  section.card { margin-bottom: var(--gap); }
-  ul { margin: 0; padding-left: 22px; }
-  ul li { margin-bottom: 10px; font-size: 0.92rem; }
-</style>
 </head>
 <body>
 <div class="wrap">
@@ -18,85 +15,17 @@
     <a href="index.html" class="nav-brand">AgentFence</a>
     <a href="index.html">Try it</a>
     <a href="live.html">Live log</a>
-    <a href="how-it-works.html">How it works</a>
-    <a href="security-proof.html">Security proof</a>
-    <a href="developers.html" class="current">Developers</a>
+    <a href="docs.html" class="current">Docs</a>
   </nav>
 
-  <header class="hero">
-    <h1 class="hero-title">Developers</h1>
-    <p class="hero-sub">Use the TypeScript SDK — five lines.</p>
-  </header>
-
-<section class="card">
-  <div class="copyrow">
-    <h2 style="margin:0;">Quickstart (SDK)</h2>
-    <button id="copy-sdk" class="btn btn-outline">Copy</button>
-  </div>
-  <pre id="sdk-code">import { AgentFence } from 'agentfence-sdk';
-
-const fence = new AgentFence({
-  network: 'testnet',
-  contractAccount: 'agentfence-contract-evm-0b497ae1.testnet',
-  agentAccount: 'agentfence-agent-9a9635f2.testnet',
-  agentKeyFile: process.env.AGENT_FCK_KEY_FILE!,
-});
-
-const { address } = await fence.deriveAddress();
-const result = await fence.pay({ to: '0x1111111111111111111111111111111111111111', amountWei: 1_000_000_000_000_000n });
-console.log(result.decision, result.reason ?? '');</pre>
-  <p class="muted" style="margin-top:10px;font-size:0.88rem;">Install from this repo: <code>npm install ./sdk</code> (not published to npm).</p>
-</section>
-
-<section class="card">
-  <h2>API</h2>
-  <table>
-    <thead><tr><th>Method</th><th>Returns</th></tr></thead>
-    <tbody>
-      <tr><td><code>deriveAddress()</code></td><td><code>{ address, publicKey }</code></td></tr>
-      <tr><td><code>getPolicy()</code></td><td><code>Policy | null</code></td></tr>
-      <tr><td><code>getSpentToday()</code></td><td><code>bigint</code> (wei)</td></tr>
-      <tr><td><code>getAuditLog({ from, limit })</code></td><td><code>AuditEntry[]</code></td></tr>
-      <tr><td><code>preview(args)</code></td><td><code>{ payloadHash } | null</code></td></tr>
-      <tr><td><code>pay({ to, amountWei, broadcast? })</code></td><td><code>PayResult</code></td></tr>
-    </tbody>
-  </table>
-</section>
-
-<section class="card">
-  <h2>Honest limitations</h2>
-  <ul>
-    <li>Spend is reserved when the signature is requested, not when the transaction is mined; a failed broadcast does not refund it.</li>
-    <li>Testnet only. ETH on Sepolia only.</li>
-    <li>No TEE — the MPC is the trust root.</li>
-    <li>An allowlisted destination is trusted; the fence constrains the agent, not the supplier.</li>
-    <li>The owner key is a single key (no multisig).</li>
-    <li>The injection demo uses <code>--force-tool-call</code> to simulate a compromised model unless run with a real LLM (<code>agent/src/agent.ts</code>).</li>
-    <li>The derived EVM address changes if the contract is redeployed to a new account.</li>
-  </ul>
-</section>
+  <section class="card">
+    <h2>This page moved</h2>
+    <p class="muted" style="margin:0;">
+      Developers now lives in <a href="docs.html#developers">Docs → For developers</a>.
+    </p>
+  </section>
 
 </div>
-
 <script src="config.js"></script>
-<script>
-(function () {
-  var code = document.getElementById('sdk-code').textContent;
-  document.getElementById('copy-sdk').addEventListener('click', async function (e) {
-    try { await navigator.clipboard.writeText(code); }
-    catch (_) {
-      var ta = document.createElement('textarea');
-      ta.value = code;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
-    }
-    var b = e.currentTarget;
-    b.textContent = 'Copied';
-    setTimeout(function () { b.textContent = 'Copy'; }, 1500);
-  });
-})();
-</script>
 </body>
 </html>
