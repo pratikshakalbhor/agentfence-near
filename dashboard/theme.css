@@ -132,7 +132,9 @@ nav a:hover {
 }
 nav a[aria-current="page"] {
   background: var(--silver);
-  color: #080808;
+  color: var(--bg);
+  border-radius: 999px;
+  padding: 6px 14px;
 }
 @media (prefers-reduced-motion: reduce) {
   nav a { transition: none; }
