@@ -167,7 +167,7 @@
   <section class="card" style="margin-bottom:var(--gap);">
     <h2>Audit log (newest first)</h2>
     <div id="audit" class="muted">loading…</div>
-    <div class="updated">last updated: <span id="updated">—</span></div>
+    <div class="updated">last updated: <span id="updated">—</span> <button type="button" class="btn btn-outline" id="refresh-now">Refresh now</button></div>
   </section>
 
   <section class="card" style="margin-bottom:var(--gap);">
@@ -291,6 +291,7 @@ async function rpcView(method, args) {
   const res = await fetch(NEAR_RPC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
@@ -469,12 +470,27 @@ $('op-check').addEventListener('click', async () => {
   }
 });
 
+async function fetchAuditLog() {
+  const all = [];
+  let fromIndex = 0;
+  const limit = 50;
+  const maxRows = 500;
+  while (all.length < maxRows) {
+    const page = await rpcView('get_audit_log', { from_index: fromIndex, limit });
+    if (!page || page.length === 0) break;
+    all.push(...page);
+    if (page.length < limit) break;
+    fromIndex += limit;
+  }
+  return all;
+}
+
 async function refresh() {
   try {
     const [policy, spent, audit] = await Promise.all([
       rpcView('get_policy',     { agent_id: AGENT_ACCOUNT }),
       rpcView('get_spent_today',{ agent_id: AGENT_ACCOUNT }),
-      rpcView('get_audit_log',  { from_index: 0, limit: 50 }),
+      fetchAuditLog(),
     ]);
     const paused = policy?.paused === true;
     els.policy.innerHTML = `
@@ -522,12 +538,13 @@ async function refresh() {
       if (e.decision === 'Allowed') tryFetchPayloadHash(e, i);
     });
     els.updated.textContent = new Date().toLocaleTimeString();
+    els.updated.classList.remove('err');
   } catch (err) {
-    const msg = `failed to load: ${err.message}`;
-    [els.policy, els.spent, els.audit].forEach((el) => {
-      el.innerHTML = `<span class="err">${esc(msg)}</span>`;
-    });
-    els.updated.textContent = 'error';
+    const now = new Date().toLocaleTimeString();
+    els.updated.textContent = `last updated: ${now} (last refresh failed: ${esc(err.message)})`;
+    els.updated.classList.add('err');
+  } finally {
+    setTimeout(refresh, 5000);
   }
 }
 
@@ -570,7 +587,16 @@ $('evm-address').textContent = EVM_ADDRESS;
 $('evm-link').href = `https://sepolia.etherscan.io/address/${EVM_ADDRESS}`;
 
 refresh();
-setInterval(refresh, 5000);
+
+$('refresh-now').addEventListener('click', () => {
+  refresh();
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    refresh();
+  }
+});
 </script>
 </body>
 </html>
