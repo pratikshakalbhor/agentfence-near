@@ -66,19 +66,22 @@
   }
 
   /* ── Table of Contents ─────────────────────────────────────────── */
-  /* Sticky vertical sidebar on desktop; block above content on mobile */
+  /* Sticky vertical sidebar on desktop; block above content on mobile.
+     Single bordered card wraps the label and ALL links together. */
   .toc {
     position: sticky;
     top: 24px;
-    align-self: start;
-    padding: 16px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--card);
+    align-self: flex-start;
+    height: auto;
+    padding: 20px;
+    border: 1px solid #222;
+    border-radius: 16px;
+    background: #111;
     overflow: visible;
     display: block;
     margin-bottom: 0;
     min-width: 0;
+    box-sizing: border-box;
   }
   .toc h2 {
     margin: 0 0 10px;
