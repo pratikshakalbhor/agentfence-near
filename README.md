@@ -15,6 +15,24 @@ Built for the NEAR Hackathon, track **AI Security & Defense**.
   (status success, block 12103743)
 - Network: NEAR **testnet** + Ethereum **Sepolia** only
 
+## Try it in 2 minutes
+
+No keys and no installs are needed to see the idea:
+
+1. Clone and serve:
+
+   ```bash
+   git clone https://github.com/pratikshakalbhor/agentfence-near.git
+   cd agentfence-near
+   npx serve dashboard
+   ```
+
+2. Open the **Try it** page, press **Injected: new address**, then **Run check**. The contract's rules run one by one and stop at the failing rule.
+
+3. Press **Legit invoice** to see an allowed request.
+
+The playground reads the live on-chain policy and sends **no transaction**. Real runs are in the **Live log**, and the real Sepolia transaction is linked above.
+
 ---
 
 ## Why this exists
@@ -72,6 +90,13 @@ If the MPC call fails, the reservation is refunded (same day only) and a
 `sign failed, spend refunded` entry is appended.
 
 The daily window is `block_timestamp / 86_400_000_000_000` (UTC days).
+
+## Design decisions
+
+- **The contract builds the transaction, not the agent.** The agent supplies only nonce, fees and gas. `to`, `value` and `chain_id` come from the policy-checked destination and amount, so an approved request cannot be turned into a different payment.
+- **The signing address belongs to the contract.** Chain Signatures derives the address from the account that calls `sign`. The agent is not that account, so it cannot sign for the funds the contract controls.
+- **Blocked requests return a decision instead of panicking.** A panic would revert the state change and the audit entry would be lost. Every decision, allowed or blocked, stays on-chain.
+- **Spend is reserved before signing and refunded if signing fails.** The daily cap is enforced even while a signature is pending.
 
 ## Threat model
 
@@ -324,6 +349,21 @@ Constants: chain id `11155111` (Sepolia), signing deposit `0.05 NEAR`
 (refunded), `sign` gas `300 TGas`, callback gas `50 TGas`, fee cap
 `0.005 ETH`.
 
+## Troubleshooting
+
+- PowerShell strips double quotes in inline JSON. Pass JSON through a file:
+  `Set-Content -Path args.json -Value '{"agent_id":"..."}'` then use
+  `file-args args.json`.
+- `agentfence` says env vars are required: set `CONTRACT_ACCOUNT`,
+  `AGENT_ACCOUNT` and `AGENT_FCK_KEY_FILE` (and `OWNER_ACCOUNT` for owner
+  commands) in the shell, or use `agent/.env` for the agent demo.
+- The dashboard shows "Failed to fetch": it reads the public NEAR testnet RPC
+  from the browser. If the RPC rate-limits or blocks cross-origin requests,
+  wait a few minutes and reload. The on-chain data is unaffected; the CLI
+  (`agentfence status`) works independently.
+- `cargo check` fails on the host target: near-sdk requires
+  `cargo check --target wasm32-unknown-unknown`.
+
 ## Honest limitations
 
 - Spend is reserved when the signature is requested, not when the transaction
@@ -342,12 +382,25 @@ Constants: chain id `11155111` (Sepolia), signing deposit `0.05 NEAR`
 - The derived EVM address changes if the contract is redeployed to a new
   account.
 - The dashboard "Try it" page is a simulation, not an on-chain event.
+- `add_destination` does not validate address format; malformed entries are
+  rejected at request time with `invalid destination format`.
+- The dashboard Owner panel builds `near` commands; you sign them with your
+  owner key. It never signs from the browser.
 
 ## Roadmap
 
 TEE attestation of the signing path, multisig owner, ERC-20 and more chains,
 NEAR Intents for settlement, time-window and velocity policies, reputation
 scoring.
+
+## Hackathon fit
+
+| Criterion | Where to look |
+|---|---|
+| Technical implementation | `contract/` (20 tests), hash verified against viem in `scripts/verify-hash/`, MPC callback with refund |
+| Innovation | The agent holds no signing authority; the contract builds the transaction it signs |
+| Track fit (AI Security & Defense) | Function-call keys, scoped access, spending limits, policy engine, audit log |
+| Execution | Real Sepolia transaction, SDK, MCP server, CLI, dashboard |
 
 ## License
 
