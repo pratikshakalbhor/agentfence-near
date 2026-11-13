@@ -28,12 +28,13 @@
   }
   .glance-card {
     margin: 0;
-    padding: 16px 18px;
+    padding: 18px 20px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: 4px;
+    justify-content: flex-start;
+    gap: 6px;
     text-decoration: none;
+    height: 100%;
   }
   a.glance-card:hover { border-color: var(--border-hover); background: var(--card-2); }
   .glance-num {
@@ -60,8 +61,10 @@
   /* Left: sticky table of contents (plain anchors — works without JS) */
   .toc {
     position: sticky;
-    top: 20px;
+    top: 72px;             /* below the 60 px nav + gap */
+    align-self: start;
     padding: 18px;
+    overflow: visible;
   }
   .toc a {
     display: block;
@@ -134,12 +137,15 @@
   .sec-body ul { margin: 0; padding-left: 22px; }
   .sec-body ul li { margin-bottom: 10px; font-size: 0.92rem; }
 
+  /* Space under the sticky nav so the DOCS title does not touch the border */
+  .hero { margin-top: 24px; }
+
   @media (prefers-reduced-motion: reduce) {
     .toc a { transition: none; }
   }
 
-  /* ── Under 800 px: TOC becomes a horizontal chip row on top ────── */
-  @media (max-width: 800px) {
+  /* ── Under 900 px: TOC becomes a horizontal chip row on top ────── */
+  @media (max-width: 899px) {
     .docs-layout { grid-template-columns: 1fr; }
     .toc {
       position: static;
@@ -149,6 +155,7 @@
       padding: 12px;
       overflow-x: auto;
       white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
     }
     .toc h2 { display: none; }
     .toc a {
@@ -157,6 +164,7 @@
       border: 1px solid var(--border);
       border-radius: 999px;
       padding: 6px 14px;
+      font-size: 0.85rem;
     }
     .toc a.is-active {
       background: var(--silver);
@@ -164,7 +172,7 @@
       color: #0a0a0a;
     }
   }
-  @media (max-width: 900px) {
+  @media (max-width: 899px) {
     .glance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 440px) {
@@ -210,8 +218,8 @@
     <a class="card glance-card"
        href="https://sepolia.etherscan.io/tx/0x388bc60903b143229dfdd9b3000c10b0a051d3a61668e340aaa7d45799608126"
        target="_blank" rel="noopener">
-      <span class="glance-txt">Real Sepolia tx:</span>
       <span class="glance-num">success</span>
+      <span class="glance-txt">Real Sepolia tx:</span>
     </a>
   </div>
 
