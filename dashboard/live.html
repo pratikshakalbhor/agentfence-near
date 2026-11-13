@@ -12,18 +12,19 @@
 <style>
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
     gap: var(--gap);
     margin-bottom: var(--gap);
   }
-  .grid .card { margin-bottom: 0; }
+  .grid .card { margin-bottom: 0; min-width: 0; }
 
   /* Audit main rows clickable */
   tr.audit-main { cursor: pointer; }
   td.toggle-cell { color: var(--muted); user-select: none; }
 
   /* Tighter audit table so it fills the width */
-  #audit table { font-size: 0.85rem; }
+  #audit table { font-size: 0.85rem; width: 100%; max-width: 100%; table-layout: fixed; }
+  #audit { overflow-x: auto; }
   #audit th, #audit td { padding: 6px 8px; }
   /* Zebra rows: each entry renders a main row + a (hidden) detail row,
      so the main rows fall on tbody positions 1, 3, 5, 7, … */
@@ -33,21 +34,96 @@
   .hero { margin-top: 24px; }
 
   /* Owner panel */
-  .op-row { display: grid; grid-template-columns: 1fr; gap: 6px; margin-bottom: 10px; }
-  .op-row label { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
-  .op-row.op-row-half { grid-template-columns: 1fr 1fr; }
-  .op-actions { display: flex; gap: 10px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+  .op-card {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .op-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+    min-width: 0;
+  }
+  .op-row label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    min-width: 0;
+  }
+  .op-row input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .op-row.op-row-half {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .op-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 10px 0;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
   #op-check-result { font-weight: 600; margin-left: 8px; }
-  .op-commands h3 { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin: 14px 0 8px; }
-  .op-cmd { margin-bottom: 12px; }
-  .op-cmd .copyrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .op-cmd pre { margin: 6px 0 0; font-size: 0.78rem; padding: 8px 10px; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  .op-commands {
+    min-width: 0;
+  }
+  .op-commands h3 {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    margin: 14px 0 8px;
+  }
+  .op-cmd {
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .op-cmd .copyrow {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .op-cmd pre {
+    margin: 6px 0 0;
+    font-size: 0.78rem;
+    padding: 8px 10px;
+    overflow-x: auto;
+    max-width: 100%;
+    white-space: pre;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    min-width: 0;
+  }
   .op-cmd pre.ps { border-left: 3px solid var(--muted); padding-left: 10px; }
   .op-cmd pre.sh { border-left: 3px solid var(--silver); padding-left: 10px; }
-  .op-label { display: block; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; font-weight: 600; }
-  @media (max-width: 375px) {
+  .op-label {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 3px;
+    font-weight: 600;
+  }
+  @media (max-width: 600px) {
     .op-row.op-row-half { grid-template-columns: 1fr; }
-    .op-cmd .copyrow { flex-direction: column; align-items: stretch; gap: 6px; }
+    .op-cmd .copyrow {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+    }
     .op-cmd .copyrow button { width: 100%; }
   }
 </style>
@@ -106,7 +182,7 @@
     <p class="muted">Fund it with Sepolia ETH from a faucet before broadcasting.</p>
   </section>
 
-  <section class="card" style="margin-bottom:var(--gap);">
+  <section class="card op-card" style="margin-bottom:var(--gap);">
     <h2>Owner panel</h2>
     <p class="muted">Build <code>near</code> commands to decide who the agent may pay. Nothing signs from the page — run these with your owner key.</p>
 
