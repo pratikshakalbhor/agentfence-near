@@ -31,6 +31,25 @@
 
   /* Space under the sticky nav so the title does not touch the border */
   .hero { margin-top: 24px; }
+
+  /* Owner panel */
+  .op-row { display: grid; grid-template-columns: 1fr; gap: 6px; margin-bottom: 10px; }
+  .op-row label { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  .op-row.op-row-half { grid-template-columns: 1fr 1fr; }
+  .op-actions { display: flex; gap: 10px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+  #op-check-result { font-weight: 600; margin-left: 8px; }
+  .op-commands h3 { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin: 14px 0 8px; }
+  .op-cmd { margin-bottom: 12px; }
+  .op-cmd .copyrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .op-cmd pre { margin: 6px 0 0; font-size: 0.78rem; padding: 8px 10px; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  .op-cmd pre.ps { border-left: 3px solid var(--muted); padding-left: 10px; }
+  .op-cmd pre.sh { border-left: 3px solid var(--silver); padding-left: 10px; }
+  .op-label { display: block; font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; font-weight: 600; }
+  @media (max-width: 375px) {
+    .op-row.op-row-half { grid-template-columns: 1fr; }
+    .op-cmd .copyrow { flex-direction: column; align-items: stretch; gap: 6px; }
+    .op-cmd .copyrow button { width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -87,10 +106,43 @@
     <p class="muted">Fund it with Sepolia ETH from a faucet before broadcasting.</p>
   </section>
 
-  <section class="card">
-    <h2>Owner controls</h2>
-    <p class="muted">Copy-paste these <code>near</code> commands (signed as the owner). Nothing here signs from the page.</p>
-    <div id="owner-commands"></div>
+  <section class="card" style="margin-bottom:var(--gap);">
+    <h2>Owner panel</h2>
+    <p class="muted">Build <code>near</code> commands to decide who the agent may pay. Nothing signs from the page — run these with your owner key.</p>
+
+    <form id="owner-panel" novalidate>
+      <div class="op-row">
+        <label for="op-agent">Agent account</label>
+        <input id="op-agent" type="text" readonly autocomplete="off">
+      </div>
+      <div class="op-row">
+        <label for="op-destination">Destination address</label>
+        <input id="op-destination" type="text" placeholder="0x1111111111111111111111111111111111111111" autocomplete="off">
+        <span id="op-dest-error" class="err" style="display:none;">Invalid address: must be 0x + 40 hex characters</span>
+      </div>
+      <div class="op-row op-row-half">
+        <label for="op-per-tx">Per-tx limit (ETH)</label>
+        <input id="op-per-tx" type="text" placeholder="0.01" inputmode="decimal" autocomplete="off">
+      </div>
+      <div class="op-row op-row-half">
+        <label for="op-daily-cap">Daily cap (ETH)</label>
+        <input id="op-daily-cap" type="text" placeholder="0.05" inputmode="decimal" autocomplete="off">
+      </div>
+      <span id="op-limits-error" class="err" style="display:none;margin-bottom:8px;"></span>
+
+      <div class="op-actions">
+        <button type="button" class="btn btn-outline" id="op-check">Check this address</button>
+        <span id="op-check-result"></span>
+      </div>
+
+      <div class="op-commands">
+        <h3>Commands to run with your owner key</h3>
+        <div id="op-cmds-container"></div>
+      </div>
+    </form>
+
+    <p class="muted">The contract enforces this list. This page only builds the command; you sign it with your owner key.</p>
+    <p class="muted">The contract cannot list all approved addresses; use Check this address to verify one.</p>
   </section>
 
 </div>
@@ -173,29 +225,73 @@ async function rpcView(method, args) {
   return JSON.parse(text);
 }
 
-// Owner CLI commands, built from the config above (verified against
-// `near contract call-function as-transaction --help` in near-cli 0.31.1).
-function ownerCommand(method, jsonArgs) {
+// Owner panel commands (built from config, never executed from the page).
+
+function opEthToWei(eth) {
+  const s = String(eth).trim();
+  const m = /^(\d+)(?:\.(\d{0,18}))?$/.exec(s);
+  if (!m) return null;
+  const whole = BigInt(m[1] || '0');
+  const frac = (m[2] ?? '').padEnd(18, '0');
+  return whole * 10n ** 18n + BigInt(frac);
+}
+
+function opValidAddress(addr) {
+  return /^0x[0-9a-fA-F]{40}$/.test(addr);
+}
+
+function opPsCmd(method, jsonArgs) {
+  const json = JSON.stringify(jsonArgs);
+  return `Set-Content -Path args.json -Value '${json}'\nnear contract call-function as-transaction ${CONTRACT_ACCOUNT} ${method} file-args args.json prepaid-gas '100 TeraGas' attached-deposit '0 NEAR' sign-as ${OWNER_ACCOUNT} network-config testnet sign-with-keychain send`;
+}
+
+function opBashCmd(method, jsonArgs) {
   return `near contract call-function as-transaction ${CONTRACT_ACCOUNT} ${method} json-args '${JSON.stringify(jsonArgs)}' prepaid-gas '100 TeraGas' attached-deposit '0 NEAR' sign-as ${OWNER_ACCOUNT} network-config testnet sign-with-keychain send`;
 }
 
-function renderOwnerCommands(policy) {
-  const cmds = [
-    ['set_policy (per_tx_limit 0.01 ETH, daily_cap 0.05 ETH)',
-      ownerCommand('set_policy', { agent_id: AGENT_ACCOUNT, per_tx_limit: '10000000000000000', daily_cap: '50000000000000000' })],
-    ['add_destination',
-      ownerCommand('add_destination', { agent_id: AGENT_ACCOUNT, destination: 'evm:0x1111111111111111111111111111111111111111' })],
-    ['set_paused (true = pause the agent)',
-      ownerCommand('set_paused', { agent_id: AGENT_ACCOUNT, paused: true })],
-    ['set_paused (false = resume the agent)',
-      ownerCommand('set_paused', { agent_id: AGENT_ACCOUNT, paused: false })],
+function opJsonFor(method, destination, perTxWei, dailyCapWei, paused) {
+  switch (method) {
+    case 'add_destination':
+    case 'remove_destination':
+      return { agent_id: AGENT_ACCOUNT, destination: 'evm:' + destination };
+    case 'set_policy':
+      return { agent_id: AGENT_ACCOUNT, per_tx_limit: String(perTxWei), daily_cap: String(dailyCapWei) };
+    case 'set_paused':
+      return { agent_id: AGENT_ACCOUNT, paused: paused };
+  }
+}
+
+let opCmds = []; // { label, method, ps, sh }
+
+function renderOpCommands(destination, perTxWei, dailyCapWei) {
+  const container = $('op-cmds-container');
+  const base = [
+    { label: 'Approve address \u2192 add_destination', method: 'add_destination' },
+    { label: 'Remove address \u2192 remove_destination', method: 'remove_destination' },
+    { label: 'Set limits \u2192 set_policy', method: 'set_policy' },
+    { label: 'Pause agent \u2192 set_paused true', method: 'set_paused', paused: true },
+    { label: 'Resume agent \u2192 set_paused false', method: 'set_paused', paused: false },
   ];
-  $('owner-commands').innerHTML = cmds.map(([label, cmd], i) => `
-    <div class="copyrow"><strong>${esc(label)}</strong><button class="btn btn-outline" data-i="${i}">Copy</button></div>
-    <pre>${esc(cmd)}</pre>`).join('');
-  document.querySelectorAll('#owner-commands button').forEach((btn) => {
+  opCmds = base.map((c) => {
+    const json = opJsonFor(c.method, destination, perTxWei, dailyCapWei, c.paused);
+    return {
+      label: c.label,
+      ps: opPsCmd(c.method, json),
+      sh: opBashCmd(c.method, json),
+    };
+  });
+  container.innerHTML = opCmds.map((c, i) => `
+    <div class="op-cmd">
+      <div class="copyrow"><strong>${esc(c.label)}</strong><button class="btn btn-outline" data-i="${i}" data-form="ps">Copy PS</button><button class="btn btn-outline" data-i="${i}" data-form="sh">Copy Bash</button></div>
+      <pre class="ps"><span class="op-label">PowerShell:</span>${esc(c.ps)}</pre>
+      <pre class="sh"><span class="op-label">Bash:</span>${esc(c.sh)}</pre>
+    </div>
+  `).join('');
+  container.querySelectorAll('button').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const cmd = cmds[Number(btn.dataset.i)][1];
+      const i = Number(btn.dataset.i);
+      const form = btn.dataset.form;
+      const cmd = form === 'ps' ? opCmds[i].ps : opCmds[i].sh;
       try {
         await navigator.clipboard.writeText(cmd);
         btn.textContent = 'Copied';
@@ -208,10 +304,94 @@ function renderOwnerCommands(policy) {
         ta.remove();
         btn.textContent = 'Copied';
       }
-      setTimeout(() => (btn.textContent = 'Copy'), 1500);
+      setTimeout(() => (btn.textContent = btn.dataset.form === 'ps' ? 'Copy PS' : 'Copy Bash'), 1500);
     });
   });
 }
+
+function renderOp() {
+  const destination = $('op-destination').value.trim();
+  const perTxRaw = $('op-per-tx').value.trim();
+  const dailyCapRaw = $('op-daily-cap').value.trim();
+  const errEl = $('op-limits-error');
+  const destErrEl = $('op-dest-error');
+  let valid = true;
+
+  if (destination !== '') {
+    if (!opValidAddress(destination)) {
+      destErrEl.style.display = '';
+      valid = false;
+    } else {
+      destErrEl.style.display = 'none';
+    }
+  } else {
+    destErrEl.style.display = 'none';
+  }
+
+  const perTxWei = perTxRaw !== '' ? opEthToWei(perTxRaw) : null;
+  const dailyCapWei = dailyCapRaw !== '' ? opEthToWei(dailyCapRaw) : null;
+
+  if (perTxRaw !== '' || dailyCapRaw !== '') {
+    if (perTxWei === null || dailyCapWei === null) {
+      errEl.textContent = 'Invalid ETH amount (use decimals, e.g. 0.01).';
+      errEl.style.display = '';
+      valid = false;
+    } else if (perTxWei <= 0n) {
+      errEl.textContent = 'Per-tx limit must be greater than 0.';
+      errEl.style.display = '';
+      valid = false;
+    } else if (perTxWei > dailyCapWei) {
+      errEl.textContent = 'Per-tx limit must not exceed daily cap.';
+      errEl.style.display = '';
+      valid = false;
+    } else {
+      errEl.style.display = 'none';
+    }
+  } else {
+    errEl.style.display = 'none';
+  }
+
+  const show = destination !== '' && opValidAddress(destination) && perTxWei !== null && dailyCapWei !== null && perTxWei > 0n && perTxWei <= dailyCapWei;
+  if (show) {
+    renderOpCommands(destination, perTxWei, dailyCapWei);
+    containerVisible();
+  } else {
+    $('op-cmds-container').innerHTML = '';
+  }
+}
+
+function containerVisible() {
+  $('op-cmds-container').style.display = '';
+}
+
+$('op-agent').value = AGENT_ACCOUNT;
+
+['op-destination', 'op-per-tx', 'op-daily-cap'].forEach((id) => {
+  $(id).addEventListener('input', renderOp);
+});
+
+$('op-check').addEventListener('click', async () => {
+  const destination = $('op-destination').value.trim();
+  const errEl = $('op-dest-error');
+  const resultEl = $('op-check-result');
+  if (!opValidAddress(destination)) {
+    errEl.style.display = '';
+    resultEl.textContent = '';
+    return;
+  }
+  errEl.style.display = 'none';
+  resultEl.textContent = 'checking…';
+  try {
+    const allowed = await rpcView('is_destination_allowed', { agent_id: AGENT_ACCOUNT, destination: 'evm:' + destination });
+    if (allowed === true) {
+      resultEl.innerHTML = '<span class="badge allowed">Approved</span>';
+    } else {
+      resultEl.innerHTML = '<span style="color:var(--muted)">Not approved</span>';
+    }
+  } catch (e) {
+    resultEl.innerHTML = `<span class="err">check failed: ${esc(e.message)}</span>`;
+  }
+});
 
 async function refresh() {
   try {
