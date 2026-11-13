@@ -445,7 +445,6 @@ async function refresh() {
     [...audit].reverse().forEach((e, i) => {
       if (e.decision === 'Allowed') tryFetchPayloadHash(e, i);
     });
-    renderOwnerCommands(policy);
     els.updated.textContent = new Date().toLocaleTimeString();
   } catch (err) {
     const msg = `failed to load: ${err.message}`;
@@ -454,6 +453,41 @@ async function refresh() {
     });
     els.updated.textContent = 'error';
   }
+}
+
+/** Owner panel initialization — isolated in its own try/catch so an error
+ * here can NEVER stop policy / spend today / audit log loading. */
+try {
+  $('op-agent').value = AGENT_ACCOUNT;
+
+  ['op-destination', 'op-per-tx', 'op-daily-cap'].forEach((id) => {
+    $(id).addEventListener('input', renderOp);
+  });
+
+  $('op-check').addEventListener('click', async () => {
+    const destination = $('op-destination').value.trim();
+    const errEl = $('op-dest-error');
+    const resultEl = $('op-check-result');
+    if (!opValidAddress(destination)) {
+      errEl.style.display = '';
+      resultEl.textContent = '';
+      return;
+    }
+    errEl.style.display = 'none';
+    resultEl.textContent = 'checking…';
+    try {
+      const allowed = await rpcView('is_destination_allowed', { agent_id: AGENT_ACCOUNT, destination: 'evm:' + destination });
+      if (allowed === true) {
+        resultEl.innerHTML = '<span class="badge allowed">Approved</span>';
+      } else {
+        resultEl.innerHTML = '<span style="color:var(--muted)">Not approved</span>';
+      }
+    } catch (e) {
+      resultEl.innerHTML = `<span class="err">check failed: ${esc(e.message)}</span>`;
+    }
+  });
+} catch (err) {
+  console.warn('Owner panel initialization failed:', err);
 }
 
 $('evm-address').textContent = EVM_ADDRESS;
