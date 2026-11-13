@@ -56,79 +56,9 @@
 
   /* Space under the sticky nav so the title does not touch the border */
   .hero { margin-top: 24px; }
-
-  /* ── Background tech panels (dashboard index only) ─────────────── */
-  body { background: #000 !important; }
-
-  #fx-bg {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    overflow: hidden;
-    background: #000;
-    /* Fade the effect out toward the left so it blends into black */
-    mask-image: linear-gradient(to right, transparent 0%, #000 30%, #000 100%);
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 30%, #000 100%);
-  }
-  /* Desktop: effect spans ~55% of viewport width, anchored right */
-  #fx-bg {
-    --fx-n: 9;
-    --fx-gold: rgb(212, 160, 40);
-    --fx-green: rgb(70, 120, 30);
-    --fx-width: 55vw;
-    --fx-edge: rgba(255, 255, 255, 0.35);
-  }
-  /* Mobile: narrower, lower opacity */
-  @media (max-width: 600px) {
-    #fx-bg {
-      --fx-width: 80vw;
-      opacity: 0.55;
-    }
-  }
-  .fx-panel {
-    position: absolute;
-    border-radius: 20px 0 0 0; /* rounded top-left only */
-    background: linear-gradient(135deg, var(--c1) 0%, var(--c2) 50%, #000 100%);
-    box-shadow:
-      inset 2px 2px 8px rgba(255, 255, 255, 0.25),
-      inset -1px -1px 4px rgba(0, 0, 0, 0.5),
-      0 0 25px var(--glow);
-    border: 1px solid var(--edge);
-  }
-  /* Slow shimmer sweeping across panel edges */
-  @media (prefers-reduced-motion: no-preference) {
-    .fx-panel {
-      animation: fx-shimmer 10s linear infinite;
-    }
-    .fx-panel::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.25) 50%, transparent 100%);
-      transform: translateX(-110%);
-      animation: fx-shimmer 10s linear infinite;
-      pointer-events: none;
-    }
-    @keyframes fx-shimmer {
-      0% { transform: translateX(-110%); }
-      100% { transform: translateX(110%); }
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .fx-panel, .fx-panel::after { animation: none; }
-  }
-
-  /* Ensure all page content sits above the background */
-  .wrap {
-    position: relative;
-    z-index: 1;
-  }
 </style>
 </head>
 <body>
-<div id="fx-bg"></div>
 <div class="wrap">
 
   <nav aria-label="Main">
@@ -515,76 +445,6 @@
   }
   refreshStats();
   setInterval(refreshStats, 5000);
-})();
-
-/* ── Generate stepped background panels ────────────────────────── */
-(function () {
-  var bg = document.getElementById('fx-bg');
-  if (!bg) return;
-
-  function build() {
-    var cs = getComputedStyle(bg);
-    var N = parseInt(cs.getPropertyValue('--fx-n')) || 9;
-    var gold = cs.getPropertyValue('--fx-gold').trim() || 'rgb(212,160,40)';
-    var green = cs.getPropertyValue('--fx-green').trim() || 'rgb(70,120,30)';
-
-    var gMatch = gold.match(/rgb\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)\)/);
-    var vMatch = green.match(/rgb\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)\)/);
-    var gR = gMatch ? +gMatch[1] : 212;
-    var gG = gMatch ? +gMatch[2] : 160;
-    var gB = gMatch ? +gMatch[3] : 40;
-    var vR = vMatch ? +vMatch[1] : 70;
-    var vG = vMatch ? +vMatch[2] : 120;
-    var vB = vMatch ? +vMatch[3] : 30;
-
-    var wMatch = cs.getPropertyValue('--fx-width').trim().match(/([\d.]+)vw/);
-    var widthRatio = wMatch ? parseFloat(wMatch[1]) / 100 : 0.55;
-
-    var vw = window.innerWidth;
-    var vh = window.innerHeight;
-    var maxW = vw * widthRatio;
-    var maxH = vh * 0.72;
-
-    bg.innerHTML = '';
-    var frag = document.createDocumentFragment();
-
-    for (var i = 0; i < N; i++) {
-      var panel = document.createElement('div');
-      panel.className = 'fx-panel';
-
-      var t = i / Math.max(N - 1, 1);
-      var r = Math.round(gR + (vR - gR) * t);
-      var g = Math.round(gG + (vG - gG) * t);
-      var b = Math.round(gB + (vB - gB) * t);
-
-      var scale = 1 - (i / N) * 0.82;
-      var w = Math.max(40, Math.round(maxW * scale));
-      var h = Math.max(30, Math.round(maxH * scale));
-
-      var stepX = Math.round(maxW / N * 0.55);
-      var stepY = Math.round(maxH / N * 0.55);
-
-      panel.style.setProperty('--c1', 'rgb(' + r + ',' + g + ',' + b + ')');
-      panel.style.setProperty('--c2', 'rgb(' + Math.round(r * 0.5) + ',' + Math.round(g * 0.5) + ',' + Math.round(b * 0.5) + ')');
-      panel.style.setProperty('--edge', cs.getPropertyValue('--fx-edge') || 'rgba(255,255,255,0.35)');
-      panel.style.setProperty('--glow', 'rgb(' + r + ',' + g + ',' + b + ')');
-
-      panel.style.width = w + 'px';
-      panel.style.height = h + 'px';
-      panel.style.bottom = (i * stepY) + 'px';
-      panel.style.right = (i * stepX) + 'px';
-
-      frag.appendChild(panel);
-    }
-    bg.appendChild(frag);
-  }
-
-  build();
-  var timer;
-  window.addEventListener('resize', function () {
-    clearTimeout(timer);
-    timer = setTimeout(build, 150);
-  });
 })();
 </script>
 </body>
