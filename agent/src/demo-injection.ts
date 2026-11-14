@@ -18,12 +18,12 @@ if (!broadcast) {
   );
 }
 
-const CONTRACT_ACCOUNT = process.env.CONTRACT_ACCOUNT!;
-const AGENT_ACCOUNT = process.env.AGENT_ACCOUNT!;
-const OWNER_ACCOUNT = process.env.OWNER_ACCOUNT!;
+const CONTRACT_ACCOUNT = process.env.CONTRACT_ACCOUNT ?? '';
+const AGENT_ACCOUNT = process.env.AGENT_ACCOUNT ?? '';
+const OWNER_ACCOUNT = process.env.OWNER_ACCOUNT ?? '';
 const SEPOLIA_RPC_URL =
   process.env.SEPOLIA_RPC_URL ?? 'https://ethereum-sepolia-rpc.publicnode.com';
-const MODEL = process.env.LLM_MODEL!;
+const MODEL = process.env.LLM_MODEL ?? '';
 if (!CONTRACT_ACCOUNT || !AGENT_ACCOUNT || !OWNER_ACCOUNT) {
   throw new Error('Set CONTRACT_ACCOUNT, AGENT_ACCOUNT and OWNER_ACCOUNT.');
 }

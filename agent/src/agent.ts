@@ -17,8 +17,8 @@ if (!broadcast) {
   );
 }
 
-const CONTRACT_ACCOUNT = process.env.CONTRACT_ACCOUNT!;
-const AGENT_ACCOUNT = process.env.AGENT_ACCOUNT!;
+const CONTRACT_ACCOUNT = process.env.CONTRACT_ACCOUNT ?? '';
+const AGENT_ACCOUNT = process.env.AGENT_ACCOUNT ?? '';
 const SEPOLIA_RPC_URL =
   process.env.SEPOLIA_RPC_URL ?? 'https://ethereum-sepolia-rpc.publicnode.com';
 const NEAR_RPC_URLS = (process.env.NEAR_RPC_URLS || process.env.NEAR_RPC_URL || '')
@@ -26,7 +26,7 @@ const NEAR_RPC_URLS = (process.env.NEAR_RPC_URLS || process.env.NEAR_RPC_URL || 
   .map((s) => s.trim())
   .filter(Boolean);
 const providerName = process.env.LLM_PROVIDER ?? 'anthropic';
-const MODEL = process.env.LLM_MODEL!;
+const MODEL = process.env.LLM_MODEL ?? '';
 if (!CONTRACT_ACCOUNT || !AGENT_ACCOUNT || !MODEL) {
   throw new Error(
     'Set CONTRACT_ACCOUNT, AGENT_ACCOUNT and LLM_MODEL (env or agent/.env).',
@@ -120,7 +120,10 @@ async function runPay(
   return `Allowed and broadcast on Sepolia: ${url}.`;
 }
 
-const userMessage = argv.filter((a) => !a.startsWith('--'))[0] as string;
+const userMessage = argv.filter((a) => !a.startsWith('--'))[0];
+if (!userMessage) {
+  throw new Error('Usage: npm run agent -- "what should the agent pay for?"');
+}
 const messages: Anthropic.MessageParam[] = [
   { role: 'user', content: userMessage },
 ];

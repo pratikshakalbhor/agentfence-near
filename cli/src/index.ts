@@ -35,7 +35,13 @@ const config = {
 };
 
 const nearRpcSkipUntil = new Map<string, number>();
-let nearRpcLastGood = config.nearRpcUrls[0];
+const [firstNearRpcUrl] = config.nearRpcUrls;
+if (!firstNearRpcUrl) {
+  throw new Error(
+    'no NEAR RPC URL configured: set NEAR_RPC_URL or NEAR_RPC_URLS (default: https://test.rpc.fastnear.com)',
+  );
+}
+let nearRpcLastGood: string = firstNearRpcUrl;
 
 function nearRpcOrder(): string[] {
   const now = Date.now();
@@ -83,8 +89,13 @@ async function nearRpcView(method: string, args: Record<string, unknown>): Promi
         lastErr = new Error(json.error.message ?? 'view call failed');
         continue;
       }
+      const resultBytes = json.result?.result;
+      if (!resultBytes) {
+        lastErr = new Error('RPC returned no result bytes');
+        continue;
+      }
       nearRpcLastGood = url;
-      const text = new TextDecoder().decode(new Uint8Array(json.result!.result));
+      const text = new TextDecoder().decode(new Uint8Array(resultBytes));
       return JSON.parse(text);
     } catch (e) {
       nearRpcSkipUntil.set(url, Date.now() + 60000);

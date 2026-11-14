@@ -24,6 +24,14 @@ interface Config {
   nearRpcUrls?: string[];
 }
 
+function requireEnvValue(env: NodeJS.ProcessEnv, name: string): string {
+  const value = env[name];
+  if (!value) {
+    throw new Error(`missing required env vars: ${name}`);
+  }
+  return value;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
   const missing = [
     'CONTRACT_ACCOUNT',
@@ -33,14 +41,17 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
   if (missing.length > 0) {
     throw new Error(`missing required env vars: ${missing.join(', ')}`);
   }
+  const contractAccount = requireEnvValue(env, 'CONTRACT_ACCOUNT');
+  const agentAccount = requireEnvValue(env, 'AGENT_ACCOUNT');
+  const agentKeyFile = requireEnvValue(env, 'AGENT_FCK_KEY_FILE');
   const nearRpcUrls = (env.NEAR_RPC_URLS || env.NEAR_RPC_URL || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
   return {
-    contractAccount: env.CONTRACT_ACCOUNT!,
-    agentAccount: env.AGENT_ACCOUNT!,
-    agentKeyFile: env.AGENT_FCK_KEY_FILE!,
+    contractAccount,
+    agentAccount,
+    agentKeyFile,
     evmRpcUrl: env.SEPOLIA_RPC_URL || undefined,
     ...(nearRpcUrls.length ? { nearRpcUrls } : {}),
   };

@@ -291,7 +291,14 @@ function parseNearRpcUrls(opts: AgentFenceOptions): string[] {
     ? String(opts.nearRpcUrl).split(',').map((s) => s.trim()).filter(Boolean)
     : [];
   const list = optUrls.length ? optUrls : (optUrl.length ? optUrl : (envUrls.length ? envUrls : (envUrl.length ? envUrl : [NEAR_RPC_DEFAULT])));
-  return Array.from(new Set(list));
+  const unique = Array.from(new Set(list));
+  if (unique.length === 0) {
+    throw new AgentFenceError(
+      'CONFIG',
+      'no NEAR RPC URL configured: set nearRpcUrl/nearRpcUrls or NEAR_RPC_URL/NEAR_RPC_URLS',
+    );
+  }
+  return unique;
 }
 
 function isSpendRetryableBeforeProcessing(err: unknown): boolean {
@@ -341,7 +348,14 @@ export class AgentFence {
     }
     this.opts = opts;
     this.nearRpcUrls = parseNearRpcUrls(opts);
-    this.nearRpcLastGood = this.nearRpcUrls[0];
+    const [firstNearRpcUrl] = this.nearRpcUrls;
+    if (!firstNearRpcUrl) {
+      throw new AgentFenceError(
+        'CONFIG',
+        'no NEAR RPC URL configured: set nearRpcUrl/nearRpcUrls or NEAR_RPC_URL/NEAR_RPC_URLS',
+      );
+    }
+    this.nearRpcLastGood = firstNearRpcUrl;
     this.evmRpcUrl = opts.evmRpcUrl ?? SEPOLIA_RPC_DEFAULT;
     // Secrets are loaded by the caller-provided key material; the key
     // string itself is never logged.

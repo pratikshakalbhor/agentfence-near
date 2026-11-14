@@ -137,7 +137,7 @@ under "Bypass proof: scoped key" and in the dashboard
   computed from the MPC contract's `derived_public_key` view.
 - **Real broadcast.** See the Etherscan link at the top. Transcript in
   [`docs/real-broadcast.txt`](docs/real-broadcast.txt).
-- **Unit tests.** Contract (20), SDK (18), CLI (10), MCP (5).
+- **Unit tests.** Contract (20), SDK (22), CLI (10), MCP (5).
 
 ### Demo results (simulated compromised model)
 
@@ -182,9 +182,13 @@ docs/        Architecture, demo output, real broadcast transcript
 ## Getting started
 
 Prerequisites: Node 20+, Rust with the `wasm32-unknown-unknown` target, the
-[`near` CLI](https://github.com/near/near-cli-rs). On Windows you may also
-need NASM on PATH for some crypto crates; use `CARGO_BUILD_JOBS=2` on small
-machines.
+[`near` CLI](https://github.com/near/near-cli-rs). `cargo test` builds crypto
+crates that need NASM on Windows (https://www.nasm.us); on Linux and macOS no
+extra tool is needed. On small machines use `CARGO_BUILD_JOBS=2`.
+
+**Build order: sdk first (`npm install && npm run build`), then cli, mcp, agent.**
+The other packages depend on the built SDK (`agentfence-sdk` is installed from
+`./sdk`), so build it before the rest.
 
 ```bash
 # contract
@@ -201,10 +205,10 @@ cd ../cli && npm install && npm run build && npm test
 npm link                       # puts `agentfence` on your PATH
 
 # mcp
-cd ../mcp && npm install && npm test
+cd ../mcp && npm install && npm run build && npm test
 
 # agent
-cd ../agent && npm install
+cd ../agent && npm install && npx tsc --noEmit
 cp .env.example .env           # then fill in the values
 ```
 
