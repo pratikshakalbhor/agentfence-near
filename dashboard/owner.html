@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Owner panel — AgentFence</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<!--
+  AgentFence dashboard — single static file, no build step, no framework,
+  no wallet connection. Serve: npx serve dashboard
+-->
+<link rel="stylesheet" href="theme.css">
+<style>
+  html { scroll-padding-top: 70px; }
+  @media (max-width: 600px) { html { scroll-padding-top: 64px; } }
+  nav { background: rgba(8, 8, 8, 0.96) !important; }
+  .hero { margin-top: 24px; scroll-margin-top: 80px; }
+
+  /* Owner panel */
+  .op-card {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .op-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+    min-width: 0;
+  }
+  .op-row label {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    min-width: 0;
+  }
+  .op-row input {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .op-row.op-row-half {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .op-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 10px 0;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  #op-check-result { font-weight: 600; margin-left: 8px; }
+  .op-commands {
+    min-width: 0;
+  }
+  .op-commands h3 {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    margin: 14px 0 8px;
+  }
+  .op-cmd {
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .op-cmd .copyrow {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .op-cmd pre {
+    margin: 6px 0 0;
+    font-size: 0.78rem;
+    padding: 8px 10px;
+    overflow-x: auto;
+    max-width: 100%;
+    white-space: pre;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    min-width: 0;
+  }
+  .op-cmd pre.ps { border-left: 3px solid var(--muted); padding-left: 10px; }
+  .op-cmd pre.sh { border-left: 3px solid var(--silver); padding-left: 10px; }
+  .op-label {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 3px;
+    font-weight: 600;
+  }
+  @media (max-width: 600px) {
+    .op-row.op-row-half { grid-template-columns: 1fr; }
+    .op-cmd .copyrow {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+    }
+    .op-cmd .copyrow button { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav aria-label="Main">
+    <a href="index.html" class="nav-brand" aria-label="AgentFence home">
+      <svg class="nav-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="2" y="2" width="20" height="20" rx="6"/>
+      </svg>
+      AgentFence
+    </a>
+    <a href="index.html">Try it</a>
+    <a href="live.html">Live log</a>
+    <a href="docs.html">Docs</a>
+  </nav>
+
+  <header class="hero">
+    <h1 class="hero-title">Owner <span class="accent-word">panel</span></h1>
+    <p class="hero-sub">Build the near commands that decide who the agent may pay.</p>
+  </header>
+
+  <section class="card op-card" style="margin-bottom:var(--gap);">
+    <h2>Owner panel</h2>
+    <p class="muted">Build <code>near</code> commands to decide who the agent may pay. Nothing signs from the page — run these with your owner key.</p>
+
+    <form id="owner-panel" novalidate>
+      <div class="op-row">
+        <label for="op-agent">Agent account</label>
+        <input id="op-agent" type="text" readonly autocomplete="off">
+      </div>
+      <div class="op-row">
+        <label for="op-destination">Destination address</label>
+        <input id="op-destination" type="text" placeholder="0x1111111111111111111111111111111111111111" autocomplete="off">
+        <span id="op-dest-error" class="err" style="display:none;">Invalid address: must be 0x + 40 hex characters</span>
+      </div>
+      <div class="op-row op-row-half">
+        <label for="op-per-tx">Per-tx limit (ETH)</label>
+        <input id="op-per-tx" type="text" placeholder="0.01" inputmode="decimal" autocomplete="off">
+      </div>
+      <div class="op-row op-row-half">
+        <label for="op-daily-cap">Daily cap (ETH)</label>
+        <input id="op-daily-cap" type="text" placeholder="0.05" inputmode="decimal" autocomplete="off">
+      </div>
+      <span id="op-limits-error" class="err" style="display:none;margin-bottom:8px;"></span>
+
+      <div class="op-actions">
+        <button type="button" class="btn btn-outline" id="op-check">Check this address</button>
+        <span id="op-check-result"></span>
+      </div>
+
+      <div class="op-commands">
+        <h3>Commands to run with your owner key</h3>
+        <div id="op-cmds-container"></div>
+      </div>
+    </form>
+
+    <p class="muted">The contract enforces this list. This page only builds the command; you sign it with your owner key.</p>
+    <p class="muted">The contract cannot list all approved addresses; use Check this address to verify one.</p>
+  </section>
+
+</div>
+
+<script src="config.js"></script>
+<script>
+// Config comes from dashboard/config.js. RPC providers from official NEAR docs:
+// https://docs.near.org/api/rpc/providers (Testnet public endpoints).
+const { CONTRACT_ACCOUNT, AGENT_ACCOUNT, RPC_URLS, OWNER_ACCOUNT } = window.AGENTFENCE_CONFIG;
+const RPC_ENDPOINTS = (Array.isArray(RPC_URLS) && RPC_URLS.length) ? RPC_URLS.slice() : ['https://test.rpc.fastnear.com'];
+// ======================================================================
+
+const $ = (id) => document.getElementById(id);
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+// ---- RPC client: fallback endpoints, skip on 429/network for 60s, remember last working ----
+const rpcSkipUntil = new Map(); // url -> timestamp ms
+let rpcLastGood = RPC_ENDPOINTS[0];
+let rpcId = 1;
+
+function rpcOrder() {
+  const now = Date.now();
+  const available = RPC_ENDPOINTS.filter((u) => (rpcSkipUntil.get(u) || 0) <= now);
+  const pool = available.length ? available : RPC_ENDPOINTS.slice();
+  const ordered = [];
+  if (pool.includes(rpcLastGood)) ordered.push(rpcLastGood);
+  for (const u of pool) if (!ordered.includes(u)) ordered.push(u);
+  return ordered;
+}
+
+async function rpcView(method, args) {
+  const body = {
+    jsonrpc: '2.0',
+    id: String(rpcId++),
+    method: 'query',
+    params: {
+      request_type: 'call_function',
+      account_id: CONTRACT_ACCOUNT,
+      method_name: method,
+      args_base64: btoa(JSON.stringify(args)),
+      finality: 'final',
+    },
+  };
+  let lastErr = null;
+  for (const url of rpcOrder()) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify(body),
+      });
+      if (res.status === 429) {
+        rpcSkipUntil.set(url, Date.now() + 60000);
+        lastErr = new Error('RPC HTTP 429');
+        continue;
+      }
+      if (!res.ok) {
+        rpcSkipUntil.set(url, Date.now() + 60000);
+        lastErr = new Error(`RPC HTTP ${res.status}`);
+        continue;
+      }
+      const json = await res.json();
+      if (json.error) {
+        lastErr = new Error(json.error.message || JSON.stringify(json.error));
+        continue;
+      }
+      rpcLastGood = url;
+      const bytes = json.result.result;
+      const text = new TextDecoder().decode(new Uint8Array(bytes));
+      return JSON.parse(text);
+    } catch (e) {
+      rpcSkipUntil.set(url, Date.now() + 60000);
+      lastErr = e;
+      continue;
+    }
+  }
+  throw lastErr || new Error('RPC request failed');
+}
+
+// ---- Owner panel commands (built from config, never executed from the page) ----
+function opEthToWei(eth) {
+  const s = String(eth).trim();
+  const m = /^(\d+)(?:\.(\d{0,18}))?$/.exec(s);
+  if (!m) return null;
+  const whole = BigInt(m[1] || '0');
+  const frac = (m[2] ?? '').padEnd(18, '0');
+  return whole * 10n ** 18n + BigInt(frac);
+}
+
+function opValidAddress(addr) {
+  return /^0x[0-9a-fA-F]{40}$/.test(addr);
+}
+
+function opPsCmd(method, jsonArgs) {
+  const json = JSON.stringify(jsonArgs);
+  return `Set-Content -Path args.json -Value '${json}'\nnear contract call-function as-transaction ${CONTRACT_ACCOUNT} ${method} file-args args.json prepaid-gas '100 TeraGas' attached-deposit '0 NEAR' sign-as ${OWNER_ACCOUNT} network-config testnet sign-with-keychain send`;
+}
+
+function opBashCmd(method, jsonArgs) {
+  return `near contract call-function as-transaction ${CONTRACT_ACCOUNT} ${method} json-args '${JSON.stringify(jsonArgs)}' prepaid-gas '100 TeraGas' attached-deposit '0 NEAR' sign-as ${OWNER_ACCOUNT} network-config testnet sign-with-keychain send`;
+}
+
+function opJsonFor(method, destination, perTxWei, dailyCapWei, paused) {
+  switch (method) {
+    case 'add_destination':
+    case 'remove_destination':
+      return { agent_id: AGENT_ACCOUNT, destination: 'evm:' + destination };
+    case 'set_policy':
+      return { agent_id: AGENT_ACCOUNT, per_tx_limit: String(perTxWei), daily_cap: String(dailyCapWei) };
+    case 'set_paused':
+      return { agent_id: AGENT_ACCOUNT, paused: paused };
+  }
+}
+
+let opCmds = [];
+function renderOpCommands(destination, perTxWei, dailyCapWei) {
+  const container = $('op-cmds-container');
+  const base = [
+    { label: 'Approve address \u2192 add_destination', method: 'add_destination' },
+    { label: 'Remove address \u2192 remove_destination', method: 'remove_destination' },
+    { label: 'Set limits \u2192 set_policy', method: 'set_policy' },
+    { label: 'Pause agent \u2192 set_paused true', method: 'set_paused', paused: true },
+    { label: 'Resume agent \u2192 set_paused false', method: 'set_paused', paused: false },
+  ];
+  opCmds = base.map((c) => {
+    const json = opJsonFor(c.method, destination, perTxWei, dailyCapWei, c.paused);
+    return { label: c.label, ps: opPsCmd(c.method, json), sh: opBashCmd(c.method, json) };
+  });
+  container.innerHTML = opCmds.map((c, i) => `
+    <div class="op-cmd">
+      <div class="copyrow"><strong>${esc(c.label)}</strong><button class="btn btn-outline" data-i="${i}" data-form="ps">Copy PS</button><button class="btn btn-outline" data-i="${i}" data-form="sh">Copy Bash</button></div>
+      <pre class="ps"><span class="op-label">PowerShell:</span>${esc(c.ps)}</pre>
+      <pre class="sh"><span class="op-label">Bash:</span>${esc(c.sh)}</pre>
+    </div>
+  `).join('');
+  container.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const i = Number(btn.dataset.i);
+      const cmd = btn.dataset.form === 'ps' ? opCmds[i].ps : opCmds[i].sh;
+      try { await navigator.clipboard.writeText(cmd); btn.textContent = 'Copied'; }
+      catch {
+        const ta = document.createElement('textarea'); ta.value = cmd; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); btn.textContent = 'Copied';
+      }
+      setTimeout(() => (btn.textContent = btn.dataset.form === 'ps' ? 'Copy PS' : 'Copy Bash'), 1500);
+    });
+  });
+}
+
+function renderOp() {
+  const destination = $('op-destination').value.trim();
+  const perTxRaw = $('op-per-tx').value.trim();
+  const dailyCapRaw = $('op-daily-cap').value.trim();
+  const errEl = $('op-limits-error');
+  const destErrEl = $('op-dest-error');
+  if (destination !== '') destErrEl.style.display = opValidAddress(destination) ? 'none' : '';
+  else destErrEl.style.display = 'none';
+  const perTxWei = perTxRaw !== '' ? opEthToWei(perTxRaw) : null;
+  const dailyCapWei = dailyCapRaw !== '' ? opEthToWei(dailyCapRaw) : null;
+  if (perTxRaw !== '' || dailyCapRaw !== '') {
+    if (perTxWei === null || dailyCapWei === null) { errEl.textContent = 'Invalid ETH amount (use decimals, e.g. 0.01).'; errEl.style.display = ''; }
+    else if (perTxWei <= 0n) { errEl.textContent = 'Per-tx limit must be greater than 0.'; errEl.style.display = ''; }
+    else if (perTxWei > dailyCapWei) { errEl.textContent = 'Per-tx limit must not exceed daily cap.'; errEl.style.display = ''; }
+    else { errEl.style.display = 'none'; }
+  } else { errEl.style.display = 'none'; }
+  const show = destination !== '' && opValidAddress(destination) && perTxWei !== null && dailyCapWei !== null && perTxWei > 0n && perTxWei <= dailyCapWei;
+  if (show) renderOpCommands(destination, perTxWei, dailyCapWei);
+  else $('op-cmds-container').innerHTML = '';
+}
+
+// ---- Owner panel initialization ----
+try {
+  $('op-agent').value = AGENT_ACCOUNT;
+  ['op-destination', 'op-per-tx', 'op-daily-cap'].forEach((id) => $(id).addEventListener('input', renderOp));
+  $('op-check').addEventListener('click', async () => {
+    const destination = $('op-destination').value.trim();
+    const errEl = $('op-dest-error');
+    const resultEl = $('op-check-result');
+    if (!opValidAddress(destination)) { errEl.style.display = ''; resultEl.textContent = ''; return; }
+    errEl.style.display = 'none';
+    resultEl.textContent = 'checking…';
+    try {
+      const allowed = await rpcView('is_destination_allowed', { agent_id: AGENT_ACCOUNT, destination: 'evm:' + destination });
+      if (allowed === true) resultEl.innerHTML = '<span class="badge allowed">Approved</span>';
+      else resultEl.innerHTML = '<span style="color:var(--muted)">Not approved</span>';
+    } catch (e) {
+      resultEl.innerHTML = `<span class="err">check failed: ${esc(e.message)}</span>`;
+    }
+  });
+} catch (err) {
+  console.warn('Owner panel initialization failed:', err);
+}
+</script>
+</body>
+</html>
