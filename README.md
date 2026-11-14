@@ -80,7 +80,7 @@ flowchart LR
 <img width="1677" height="897" alt="Screenshot 2026-11-13 182806" src="https://github.com/user-attachments/assets/842595de-24d1-4063-ab89-2412eb6f4f21" />
 
 | Live audit log | Real Sepolia transaction |
-<img width="1777" height="890" alt="Screenshot 2026-11-13 200414" src="https://github.com/user-attachments/assets/23d66d43-2654-43e3-9782-fb2ce7914dbd" />
+<img width="1555" height="902" alt="Screenshot 2026-11-14 173241" src="https://github.com/user-attachments/assets/0d2ddec4-6af9-40c7-b0da-1c72063670ed" />
 <img width="1427" height="902" alt="Screenshot 2026-11-13 182859" src="https://github.com/user-attachments/assets/124ee42b-678f-4eda-8643-9b9a4d362179" />
 
 ### Rule order and reason strings
