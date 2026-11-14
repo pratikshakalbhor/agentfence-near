@@ -73,6 +73,16 @@ flowchart LR
 6. The agent attaches the signature, verifies the recovered signer equals the
    contract-derived address, and broadcasts.
 
+### Screenshots
+
+| Blocked: injected address | Allowed: legit invoice |
+<img width="1601" height="911" alt="Screenshot 2026-11-13 182746" src="https://github.com/user-attachments/assets/4ab4ec5f-97c4-4486-8cde-3b275466901a" />
+<img width="1677" height="897" alt="Screenshot 2026-11-13 182806" src="https://github.com/user-attachments/assets/842595de-24d1-4063-ab89-2412eb6f4f21" />
+
+| Live audit log | Real Sepolia transaction |
+<img width="1777" height="890" alt="Screenshot 2026-11-13 200414" src="https://github.com/user-attachments/assets/23d66d43-2654-43e3-9782-fb2ce7914dbd" />
+<img width="1427" height="902" alt="Screenshot 2026-11-13 182859" src="https://github.com/user-attachments/assets/124ee42b-678f-4eda-8643-9b9a4d362179" />
+
 ### Rule order and reason strings
 
 | # | Rule | Reason on failure |
