@@ -294,14 +294,29 @@ function parseNearRpcUrls(opts: AgentFenceOptions): string[] {
   return Array.from(new Set(list));
 }
 
-function isRetryableRpcError(err: unknown, status?: number): boolean {
-  if (status === 429) return true;
+function isSpendRetryableBeforeProcessing(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err ?? '');
-  if (/429|Too Many Requests/i.test(msg)) return true;
-  // network/fetch/CORS-like failures
-  if (/fetch failed|network|ECONN|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket|timeout/i.test(msg)) return true;
-  if (err instanceof TypeError) return true;
+  const code = (err as any)?.code ?? (err as any)?.cause?.code;
+  // Clearly rejected before processing.
+  if (/\b429\b|Too Many Requests/i.test(msg)) return true;
+  if (/\b503\b|Service Unavailable/i.test(msg)) return true;
+
+  // Timeouts/aborted connections after the request was sent are ambiguous: do not retry.
+  if (/timeout|timed out|ETIMEDOUT|aborted|abort|ECONNRESET|socket hang up/i.test(msg)) return false;
+  if (code === 'ETIMEDOUT' || code === 'ECONNABORTED' || code === 'ECONNRESET') return false;
+
+  // Connection/DNS errors that occurred before any response.
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN' || code === 'ECONNREFUSED') return true;
+  if (/ENOTFOUND|EAI_AGAIN|getaddrinfo|ECONNREFUSED/i.test(msg)) return true;
   return false;
+}
+
+function spendAmbiguousOrUnsafeError(err: unknown): Error {
+  const base = err instanceof Error ? err.message : String(err ?? 'unknown error');
+  return new AgentFenceError(
+    'NETWORK',
+    `request_spend failed (${base}). Do not retry blindly; check \`agentfence audit\` before trying again.`,
+  );
 }
 
 export class AgentFence {
@@ -426,15 +441,16 @@ export class AgentFence {
         this.nearRpcLastGood = url;
         return result as unknown as SpendContractResult;
       } catch (e) {
-        if (isRetryableRpcError(e)) {
+        if (isSpendRetryableBeforeProcessing(e)) {
           this.nearRpcSkipUntil.set(url, Date.now() + 60000);
           lastErr = e;
           continue;
         }
-        throw e;
+        throw spendAmbiguousOrUnsafeError(e);
       }
     }
-    throw lastErr instanceof Error ? lastErr : new Error(String(lastErr ?? 'RPC request failed'));
+    // Only reached when every attempted endpoint clearly rejected before processing.
+    throw spendAmbiguousOrUnsafeError(lastErr ?? new Error('RPC request failed'));
   }
 
   private async resolveFckKey(): Promise<string> {
