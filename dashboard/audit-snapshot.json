@@ -1,0 +1,327 @@
+{
+  "generatedAt": "2026-11-14T12:25:50.442Z",
+  "contract": "agentfence-contract-evm-0b497ae1.testnet",
+  "policy": {
+    "per_tx_limit": "10000000000000000",
+    "daily_cap": "50000000000000000",
+    "paused": false
+  },
+  "spentToday": "0",
+  "audit": [
+    {
+      "id": 0,
+      "timestamp": 1794119277002329300,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "50",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 1,
+      "timestamp": 1794119296156116700,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "50",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 2,
+      "timestamp": 1794119323900402000,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "10",
+      "decision": "Blocked",
+      "reason": "fee exceeds max_fee_cap"
+    },
+    {
+      "id": 3,
+      "timestamp": 1794119343111856000,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "10",
+      "decision": "Blocked",
+      "reason": "fee exceeds max_fee_cap"
+    },
+    {
+      "id": 4,
+      "timestamp": 1794120279607313000,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 5,
+      "timestamp": 1794120315249655600,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 6,
+      "timestamp": 1794120335260021800,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 7,
+      "timestamp": 1794120357138551600,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 8,
+      "timestamp": 1794122178667347500,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 9,
+      "timestamp": 1794122210783663900,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 10,
+      "timestamp": 1794122220473533400,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x2222222222222222222222222222222222222222",
+      "amount": "50000000000000000",
+      "decision": "Blocked",
+      "reason": "destination not allowlisted"
+    },
+    {
+      "id": 11,
+      "timestamp": 1794122224683445800,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "5000000000000000000",
+      "decision": "Blocked",
+      "reason": "exceeds per_tx_limit"
+    },
+    {
+      "id": 12,
+      "timestamp": 1794122235574695400,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Blocked",
+      "reason": "agent is paused"
+    },
+    {
+      "id": 13,
+      "timestamp": 1794122271283211800,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 14,
+      "timestamp": 1794122280421461500,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x2222222222222222222222222222222222222222",
+      "amount": "50000000000000000",
+      "decision": "Blocked",
+      "reason": "destination not allowlisted"
+    },
+    {
+      "id": 15,
+      "timestamp": 1794122284720632000,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "5000000000000000000",
+      "decision": "Blocked",
+      "reason": "exceeds per_tx_limit"
+    },
+    {
+      "id": 16,
+      "timestamp": 1794122300394385200,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Blocked",
+      "reason": "agent is paused"
+    },
+    {
+      "id": 17,
+      "timestamp": 1794122730971093500,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 18,
+      "timestamp": 1794122740019444700,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x2222222222222222222222222222222222222222",
+      "amount": "50000000000000000",
+      "decision": "Blocked",
+      "reason": "destination not allowlisted"
+    },
+    {
+      "id": 19,
+      "timestamp": 1794122743771865900,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "5000000000000000000",
+      "decision": "Blocked",
+      "reason": "exceeds per_tx_limit"
+    },
+    {
+      "id": 20,
+      "timestamp": 1794122755255991300,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Blocked",
+      "reason": "agent is paused"
+    },
+    {
+      "id": 21,
+      "timestamp": 1794125376401336800,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 22,
+      "timestamp": 1794125385512633300,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x2222222222222222222222222222222222222222",
+      "amount": "50000000000000000",
+      "decision": "Blocked",
+      "reason": "destination not allowlisted"
+    },
+    {
+      "id": 23,
+      "timestamp": 1794125388552567800,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "5000000000000000000",
+      "decision": "Blocked",
+      "reason": "exceeds per_tx_limit"
+    },
+    {
+      "id": 24,
+      "timestamp": 1794125398128339200,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Blocked",
+      "reason": "agent is paused"
+    },
+    {
+      "id": 25,
+      "timestamp": 1794126178229745700,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x2222222222222222222222222222222222222222",
+      "amount": "1000000000000000",
+      "decision": "Blocked",
+      "reason": "destination not allowlisted"
+    },
+    {
+      "id": 26,
+      "timestamp": 1794302886102950400,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 27,
+      "timestamp": 1794452152096394500,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Allowed",
+      "reason": null
+    },
+    {
+      "id": 28,
+      "timestamp": 1794452159961199000,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x2222222222222222222222222222222222222222",
+      "amount": "50000000000000000",
+      "decision": "Blocked",
+      "reason": "destination not allowlisted"
+    },
+    {
+      "id": 29,
+      "timestamp": 1794452163603492400,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "5000000000000000000",
+      "decision": "Blocked",
+      "reason": "exceeds per_tx_limit"
+    },
+    {
+      "id": 30,
+      "timestamp": 1794452176351969800,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x1111111111111111111111111111111111111111",
+      "amount": "1000000000000000",
+      "decision": "Blocked",
+      "reason": "agent is paused"
+    },
+    {
+      "id": 31,
+      "timestamp": 1794455927669339400,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x2222222222222222222222222222222222222222",
+      "amount": "1000000000000000",
+      "decision": "Blocked",
+      "reason": "destination not allowlisted"
+    },
+    {
+      "id": 32,
+      "timestamp": 1794455987738865700,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x3333333333333333333333333333333333333333",
+      "amount": "1000000000000000",
+      "decision": "Blocked",
+      "reason": "destination not allowlisted"
+    },
+    {
+      "id": 33,
+      "timestamp": 1794623406765579300,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x4444444444444444444444444444444444444444",
+      "amount": "1000000000000000",
+      "decision": "Blocked",
+      "reason": "destination not allowlisted"
+    },
+    {
+      "id": 34,
+      "timestamp": 1794639849923914000,
+      "agent_id": "agentfence-agent-9a9635f2.testnet",
+      "destination": "evm:0x5555555555555555555555555555555555555555",
+      "amount": "1000000000000000",
+      "decision": "Blocked",
+      "reason": "destination not allowlisted"
+    }
+  ]
+}

@@ -376,6 +376,10 @@ Constants: chain id `11155111` (Sepolia), signing deposit `0.05 NEAR`
   from the browser. If the RPC rate-limits or blocks cross-origin requests,
   wait a few minutes and reload. The on-chain data is unaffected; the CLI
   (`agentfence status`) works independently.
+- To pre-generate a read-only fallback snapshot for the live log, run
+  `node scripts/snapshot-audit.mjs` (uses `CONTRACT_ACCOUNT`, `AGENT_ACCOUNT`,
+  and `NEAR_RPC_URL(S)` if set; writes `dashboard/audit-snapshot.json`). No key
+  or transactions required.
 - `cargo check` fails on the host target: near-sdk requires
   `cargo check --target wasm32-unknown-unknown`.
 

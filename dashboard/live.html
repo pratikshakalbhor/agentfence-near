@@ -180,6 +180,7 @@
 
   <section class="card" style="margin-bottom:var(--gap);">
     <h2>Audit log (newest first)</h2>
+    <div id="snapshot-note" class="muted" style="display:none;margin-bottom:10px;padding:8px 10px;border:1px solid var(--border);border-left:3px solid #e0a800;border-radius:var(--radius-sm);color:var(--fg);"></div>
     <div id="audit" class="muted">loading…</div>
     <div class="updated">last updated: <span id="updated">—</span> <span id="refresh-note" class="muted"></span> <button type="button" class="btn btn-outline" id="refresh-now">Refresh now</button></div>
   </section>
@@ -246,8 +247,9 @@ const RPC_ENDPOINTS = (Array.isArray(RPC_URLS) && RPC_URLS.length) ? RPC_URLS.sl
 // ======================================================================
 
 const $ = (id) => document.getElementById(id);
-const els = { policy: $('policy'), spent: $('spent'), spentFill: $('spent-fill'), audit: $('audit'), updated: $('updated'), note: $('refresh-note') };
+const els = { policy: $('policy'), spent: $('spent'), spentFill: $('spent-fill'), audit: $('audit'), updated: $('updated'), note: $('refresh-note'), snapshotNote: $('snapshot-note') };
 const WEI_PER_ETH = 10n ** 18n;
+let snapshotGeneratedAt = null;
 
 function weiToEth(wei) {
   const v = BigInt(wei ?? '0');
@@ -494,6 +496,15 @@ function renderData(data, note) {
   els.updated.textContent = updatedAt.toLocaleTimeString();
   els.updated.classList.remove('err');
   if (els.note) els.note.textContent = note || '';
+  if (els.snapshotNote) {
+    if (snapshotGeneratedAt) {
+      els.snapshotNote.style.display = '';
+      els.snapshotNote.textContent = `Showing a saved snapshot from ${snapshotGeneratedAt} because the live RPC is unavailable. Press 'Refresh now' to retry.`;
+    } else {
+      els.snapshotNote.style.display = 'none';
+      els.snapshotNote.textContent = '';
+    }
+  }
 }
 
 async function fetchAuditTail() {
@@ -533,6 +544,16 @@ function scheduleNext(ms) {
   refreshTimer = setTimeout(() => refresh(false), ms);
 }
 
+async function loadSnapshot() {
+  try {
+    const res = await fetch('./audit-snapshot.json', { cache: 'no-store' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 async function refresh(force) {
   if (refreshInFlight) return;
   if (document.hidden && !force) return;
@@ -544,6 +565,7 @@ async function refresh(force) {
       rpcView('get_spent_today', { agent_id: AGENT_ACCOUNT }),
     ]);
     const audit = await fetchAuditTail();
+    snapshotGeneratedAt = null;
     lastGood = { policy, spent, audit: audit.slice(), updatedAt: new Date() };
     backoffMs = 20000;
     renderData(lastGood, '');
@@ -551,18 +573,26 @@ async function refresh(force) {
   } catch (err) {
     const now = new Date();
     if (lastGood) {
+      snapshotGeneratedAt = null;
       renderData({ ...lastGood, updatedAt: lastGood.updatedAt }, ' (RPC busy, showing last data)');
-      // keep original last updated time text but add note; adjust display
       els.updated.textContent = `${lastGood.updatedAt.toLocaleTimeString()}`;
       if (els.note) els.note.textContent = ' — RPC busy, showing last data';
       els.updated.classList.add('err');
     } else {
-      els.updated.textContent = `last refresh failed: ${esc(err.message)}`;
-      els.updated.classList.add('err');
-      if (els.note) els.note.textContent = '';
+      const snap = await loadSnapshot();
+      if (snap && snap.policy) {
+        snapshotGeneratedAt = snap.generatedAt || 'unknown time';
+        const audit = Array.isArray(snap.audit) ? snap.audit.slice() : [];
+        auditCache = audit.slice();
+        auditFullyLoaded = true;
+        renderData({ policy: snap.policy, spent: snap.spentToday ?? '0', audit, updatedAt: new Date(snap.generatedAt || Date.now()) }, '');
+      } else {
+        els.updated.textContent = `last refresh failed: ${esc(err.message)}`;
+        els.updated.classList.add('err');
+        if (els.note) els.note.textContent = '';
+        if (els.snapshotNote) { els.snapshotNote.style.display = 'none'; els.snapshotNote.textContent = ''; }
+      }
     }
-    const next = Math.min(Math.max(backoffMs, 30000) * (backoffMs >= 30000 ? 2 : 1), 300000);
-    // backoff sequence 30,60,120,300 after failure
     if (backoffMs < 30000) backoffMs = 30000; else backoffMs = Math.min(backoffMs * 2, 300000);
     scheduleNext(backoffMs);
   } finally {
