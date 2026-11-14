@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>Live log — AgentFence</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
 <!--
   AgentFence dashboard — single static file, no build step, no framework,
   no wallet connection. Serve: npx serve dashboard
@@ -22,16 +23,29 @@
   tr.audit-main { cursor: pointer; }
   td.toggle-cell { color: var(--muted); user-select: none; }
 
+  html { scroll-padding-top: 70px; }
+  @media (max-width: 600px) { html { scroll-padding-top: 64px; } }
+  nav { background: rgba(8, 8, 8, 0.96) !important; }
+
   /* Tighter audit table so it fills the width */
   #audit table { font-size: 0.85rem; width: 100%; max-width: 100%; table-layout: fixed; }
-  #audit { overflow-x: auto; }
-  #audit th, #audit td { padding: 6px 8px; }
+  #audit { overflow-x: auto; min-width: 0; }
+  #audit th, #audit td { padding: 6px 8px; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+  #audit td code { overflow-wrap: anywhere; word-break: break-all; }
+  #audit th:nth-child(1), #audit td:nth-child(1) { width: 6%; }
+  #audit th:nth-child(2), #audit td:nth-child(2) { width: 18%; }
+  #audit th:nth-child(3), #audit td:nth-child(3) { width: 16%; }
+  #audit th:nth-child(4), #audit td:nth-child(4) { width: 18%; }
+  #audit th:nth-child(5), #audit td:nth-child(5) { width: 16%; }
+  #audit th:nth-child(6), #audit td:nth-child(6) { width: 10%; }
+  #audit th:nth-child(7), #audit td:nth-child(7) { width: 14%; }
+  #audit th:nth-child(8), #audit td:nth-child(8) { width: 2%; }
   /* Zebra rows: each entry renders a main row + a (hidden) detail row,
      so the main rows fall on tbody positions 1, 3, 5, 7, … */
   #audit tbody tr.audit-main:nth-child(4n+1) { background: rgba(205,203,202,0.035); }
 
   /* Space under the sticky nav so the title does not touch the border */
-  .hero { margin-top: 24px; }
+  .hero { margin-top: 24px; scroll-margin-top: 80px; }
 
   /* Owner panel */
   .op-card {
@@ -260,15 +274,11 @@ function toggleDetail(i) {
   row.style.display = row.style.display === 'none' ? '' : 'none';
 }
 
-// EXPERIMENTAL: fetch payload hash from the transaction outcome of the
-// MPC sign call, if queryable. `request_spend` does not store a tx hash in
-// the audit entry, so there is no receipt hash to look up by known value.
-// We therefore attempt tx_status for the latest `request_spend` receipts,
-// and if nothing is found we say so plainly instead of faking a hash.
-async function tryFetchPayloadHash(entry, i) {
-  const box = document.querySelector(`#detail-${i} .payload-box`);
-  if (!box) return;
-  box.textContent = 'payload hash: not indexed in the audit entry (see note below).';
+function payloadHashDetail(e) {
+  if (e.decision === 'Allowed') {
+    return '<div class="payload-box muted">payload hash: not stored on-chain (it is returned in the request_spend result)</div>';
+  }
+  return '';
 }
 
 function esc(s) {
@@ -522,7 +532,7 @@ async function refresh() {
           <strong>amount:</strong> ${esc(e.amount)} wei (${weiToEth(e.amount)} ETH)<br>
           <strong>decision:</strong> ${esc(e.decision)}<br>
           <strong>reason:</strong> ${esc(e.reason ?? '—')}
-          <div class="payload-box muted">payload hash: looking up…</div>
+          ${payloadHashDetail(e)}
         </td>
       </tr>`).join('');
     els.audit.innerHTML = `
@@ -532,10 +542,6 @@ async function refresh() {
       </table>`;
     document.querySelectorAll('.audit-main').forEach((tr, i) => {
       tr.addEventListener('click', () => toggleDetail(i));
-    });
-    // Best-effort payload hash for Allowed rows via EXPERIMENTAL_tx_status.
-    [...audit].reverse().forEach((e, i) => {
-      if (e.decision === 'Allowed') tryFetchPayloadHash(e, i);
     });
     els.updated.textContent = new Date().toLocaleTimeString();
     els.updated.classList.remove('err');
