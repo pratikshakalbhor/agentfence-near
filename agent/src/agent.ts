@@ -21,6 +21,10 @@ const CONTRACT_ACCOUNT = process.env.CONTRACT_ACCOUNT!;
 const AGENT_ACCOUNT = process.env.AGENT_ACCOUNT!;
 const SEPOLIA_RPC_URL =
   process.env.SEPOLIA_RPC_URL ?? 'https://ethereum-sepolia-rpc.publicnode.com';
+const NEAR_RPC_URLS = (process.env.NEAR_RPC_URLS || process.env.NEAR_RPC_URL || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 const providerName = process.env.LLM_PROVIDER ?? 'anthropic';
 const MODEL = process.env.LLM_MODEL!;
 if (!CONTRACT_ACCOUNT || !AGENT_ACCOUNT || !MODEL) {
@@ -57,6 +61,7 @@ const fence = new AgentFence({
   agentAccount: AGENT_ACCOUNT,
   agentKey: FCK_KEY,
   evmRpcUrl: SEPOLIA_RPC_URL,
+  ...(NEAR_RPC_URLS.length ? { nearRpcUrls: NEAR_RPC_URLS } : {}),
 });
 
 const client = new Anthropic({

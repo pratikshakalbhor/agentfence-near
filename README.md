@@ -357,6 +357,11 @@ Constants: chain id `11155111` (Sepolia), signing deposit `0.05 NEAR`
 - `agentfence` says env vars are required: set `CONTRACT_ACCOUNT`,
   `AGENT_ACCOUNT` and `AGENT_FCK_KEY_FILE` (and `OWNER_ACCOUNT` for owner
   commands) in the shell, or use `agent/.env` for the agent demo.
+- NEAR RPC rate limits or `429` errors: set `NEAR_RPC_URL` to a working
+  testnet endpoint, or `NEAR_RPC_URLS` to a comma-separated fallback list
+  (tried in order; endpoints that return 429 or network errors are skipped for
+  60 seconds). Supported by the SDK, CLI, agent demo, and MCP server (see
+  `agent/.env.example`).
 - The dashboard shows "Failed to fetch": it reads the public NEAR testnet RPC
   from the browser. If the RPC rate-limits or blocks cross-origin requests,
   wait a few minutes and reload. The on-chain data is unaffected; the CLI
