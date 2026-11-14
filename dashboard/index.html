@@ -55,7 +55,8 @@
   }
 
   /* Space under the sticky nav so the title does not touch the border */
-  .hero { margin-top: 24px; }
+  .hero { margin-top: 24px; scroll-margin-top: 80px; }
+  html { scroll-padding-top: 70px; }
 </style>
 </head>
 <body>
@@ -161,7 +162,7 @@
       <div class="decisions-list" id="last-decisions">
         <div class="muted">loading…</div>
       </div>
-      <div class="updated">last updated: <span id="updated">—</span></div>
+      <div class="updated">last updated: <span id="updated">—</span> <span id="refresh-note" class="muted"></span></div>
     </section>
 
     <!-- ── Start here guide ── -->
@@ -190,14 +191,16 @@
 <script src="config.js"></script>
 <script>
 (function () {
-  // Config (CONTRACT_ACCOUNT, AGENT_ACCOUNT, NEAR_RPC_URL, EVM_ADDRESS,
-  // OWNER_ACCOUNT, NEAR_EXPLORER_TX_BASE) comes from dashboard/config.js.
-  var { CONTRACT_ACCOUNT, AGENT_ACCOUNT, NEAR_RPC_URL, EVM_ADDRESS } = window.AGENTFENCE_CONFIG;
+  // RPC providers from official NEAR docs: https://docs.near.org/api/rpc/providers
+  var cfg = window.AGENTFENCE_CONFIG || {};
+  var CONTRACT_ACCOUNT = cfg.CONTRACT_ACCOUNT;
+  var AGENT_ACCOUNT = cfg.AGENT_ACCOUNT;
+  var EVM_ADDRESS = cfg.EVM_ADDRESS;
+  var RPC_ENDPOINTS = (Array.isArray(cfg.RPC_URLS) && cfg.RPC_URLS.length) ? cfg.RPC_URLS.slice() : ['https://test.rpc.fastnear.com'];
 
   var $ = (id) => document.getElementById(id);
   var WEI_PER_ETH = 10n ** 18n;
 
-  // Show derived EVM address
   if (EVM_ADDRESS) {
     $('stat-evm').innerHTML = `<a href="https://sepolia.etherscan.io/address/${EVM_ADDRESS}" target="_blank" rel="noopener">${EVM_ADDRESS}</a>`;
   }
@@ -233,10 +236,23 @@
     return addr.length > 14 ? `${addr.slice(0, 7)}…${addr.slice(-6)}` : addr;
   }
 
+  // ---- RPC client: fallback endpoints, skip on 429/network for 60s, remember last working ----
+  var rpcSkipUntil = new Map();
+  var rpcLastGood = RPC_ENDPOINTS[0];
+  var rpcId = 1;
+  function rpcOrder() {
+    var now = Date.now();
+    var available = RPC_ENDPOINTS.filter((u) => (rpcSkipUntil.get(u) || 0) <= now);
+    var pool = available.length ? available : RPC_ENDPOINTS.slice();
+    var ordered = [];
+    if (pool.indexOf(rpcLastGood) !== -1) ordered.push(rpcLastGood);
+    for (var i = 0; i < pool.length; i++) if (ordered.indexOf(pool[i]) === -1) ordered.push(pool[i]);
+    return ordered;
+  }
   async function rpcView(method, args) {
     var body = {
       jsonrpc: '2.0',
-      id: 'dot',
+      id: String(rpcId++),
       method: 'query',
       params: {
         request_type: 'call_function',
@@ -246,16 +262,26 @@
         finality: 'final',
       },
     };
-    var res = await fetch(NEAR_RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
-    var json = await res.json();
-    if (json.error) throw new Error(json.error.message || JSON.stringify(json.error));
-    var text = new TextDecoder().decode(new Uint8Array(json.result.result));
-    return JSON.parse(text);
+    var lastErr = null;
+    var order = rpcOrder();
+    for (var i = 0; i < order.length; i++) {
+      var url = order[i];
+      try {
+        var res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store', body: JSON.stringify(body) });
+        if (res.status === 429) { rpcSkipUntil.set(url, Date.now() + 60000); lastErr = new Error('RPC HTTP 429'); continue; }
+        if (!res.ok) { rpcSkipUntil.set(url, Date.now() + 60000); lastErr = new Error('RPC HTTP ' + res.status); continue; }
+        var json = await res.json();
+        if (json.error) { lastErr = new Error(json.error.message || JSON.stringify(json.error)); continue; }
+        rpcLastGood = url;
+        var text = new TextDecoder().decode(new Uint8Array(json.result.result));
+        return JSON.parse(text);
+      } catch (e) {
+        rpcSkipUntil.set(url, Date.now() + 60000);
+        lastErr = e;
+        continue;
+      }
+    }
+    throw lastErr || new Error('RPC request failed');
   }
 
   var scenarios = {
@@ -288,11 +314,8 @@
   }
 
   var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function pause(ms) {
-    return new Promise((r) => setTimeout(r, reducedMotion ? 0 : ms));
-  }
+  function pause(ms) { return new Promise((r) => setTimeout(r, reducedMotion ? 0 : ms)); }
 
-  // Drives one simulated request_spend using LIVE policy/allowlist/paused/spent.
   async function runCheck() {
     var destination = $('f-destination').value.trim();
     var amountEth   = $('f-amount').value.trim();
@@ -300,45 +323,33 @@
     list.innerHTML = '';
     $('result').style.display = 'none';
     $('check-note').textContent = '';
-
-    var pausedSimulation = false;
-    if (document.querySelector('[aria-pressed="true"]')?.dataset.scenario === 'D') {
-      pausedSimulation = true;
-    }
+    var pausedSimulation = document.querySelector('[aria-pressed="true"]')?.dataset.scenario === 'D';
 
     let policy;
-    try {
-      policy = await rpcView('get_policy', { agent_id: AGENT_ACCOUNT });
-    } catch (e) {
+    try { policy = await rpcView('get_policy', { agent_id: AGENT_ACCOUNT }); }
+    catch (e) {
       setCheckRow(0, 'policy exists', 'fail', String(e.message));
       var r = $('result');
       r.className = 'result bad';
-      r.innerHTML = `<span class="sim">Simulation — no transaction sent</span>
-        <span class="verdict">BLOCKED</span>
-        <br><span class="muted">RPC failed: ${esc(e.message)}</span>`;
+      r.innerHTML = `<span class="sim">Simulation — no transaction sent</span><span class="verdict">BLOCKED</span><br><span class="muted">RPC failed: ${esc(e.message)}</span>`;
       r.style.display = 'block';
       return;
     }
 
     var spent = BigInt((await rpcView('get_spent_today', { agent_id: AGENT_ACCOUNT })) ?? '0');
     var amountWei;
-    try {
-      amountWei = ethToWei(amountEth);
-    } catch {
-      setCheckRow(2, 'amount > 0', 'fail', 'bad amount format');
-      return;
-    }
+    try { amountWei = ethToWei(amountEth); } catch { setCheckRow(2, 'amount > 0', 'fail', 'bad amount format'); return; }
 
     var dest = destination.startsWith('evm:') ? destination : `evm:${destination}`;
     var allowlisted = await rpcView('is_destination_allowed', { agent_id: AGENT_ACCOUNT, destination: dest });
     var paused = pausedSimulation ? true : policy.paused;
 
     var checks = [
-      { label: 'policy exists',              ok: policy != null,                                  reason: 'no policy for agent' },
-      { label: 'agent not paused',           ok: !paused,                                         reason: 'agent is paused' },
-      { label: 'amount > 0',                 ok: amountWei > 0n,                                  reason: 'amount must be greater than zero' },
-      { label: 'destination allowlisted',    ok: allowlisted === true,                            reason: 'destination not allowlisted' },
-      { label: 'amount ≤ per_tx_limit',      ok: amountWei <= BigInt(policy.per_tx_limit),        reason: 'exceeds per_tx_limit' },
+      { label: 'policy exists', ok: policy != null, reason: 'no policy for agent' },
+      { label: 'agent not paused', ok: !paused, reason: 'agent is paused' },
+      { label: 'amount > 0', ok: amountWei > 0n, reason: 'amount must be greater than zero' },
+      { label: 'destination allowlisted', ok: allowlisted === true, reason: 'destination not allowlisted' },
+      { label: 'amount ≤ per_tx_limit', ok: amountWei <= BigInt(policy.per_tx_limit), reason: 'exceeds per_tx_limit' },
       { label: 'spent_today + amount ≤ daily_cap', ok: spent + amountWei <= BigInt(policy.daily_cap), reason: 'exceeds daily_cap' },
     ];
 
@@ -346,105 +357,103 @@
     for (var i = 0; i < checks.length; i++) {
       setCheckRow(i, checks[i].label, 'pending');
       await pause(400);
-      if (!checks[i].ok) {
-        setCheckRow(i, checks[i].label, 'fail', checks[i].reason);
-        failed = i;
-        break;
-      }
+      if (!checks[i].ok) { setCheckRow(i, checks[i].label, 'fail', checks[i].reason); failed = i; break; }
       setCheckRow(i, checks[i].label, 'pass');
     }
 
     var result = $('result');
     if (failed >= 0) {
       result.className = 'result bad';
-      result.innerHTML = `<span class="sim">Simulation using the live on-chain policy — no transaction sent</span>
-        <span class="verdict">BLOCKED</span>
-        <br><span class="muted">${esc(checks[failed].reason)}</span>`;
+      result.innerHTML = `<span class="sim">Simulation using the live on-chain policy — no transaction sent</span><span class="verdict">BLOCKED</span><br><span class="muted">${esc(checks[failed].reason)}</span>`;
     } else {
       result.className = 'result ok';
-      result.innerHTML = `<span class="sim">Simulation using the live on-chain policy — no transaction sent</span>
-        <span class="verdict">ALLOWED</span>
-        <br><span class="muted">The contract would ask the MPC to sign a Sepolia transaction.</span>`;
+      result.innerHTML = `<span class="sim">Simulation using the live on-chain policy — no transaction sent</span><span class="verdict">ALLOWED</span><br><span class="muted">The contract would ask the MPC to sign a Sepolia transaction.</span>`;
     }
     result.style.display = 'block';
-    if (pausedSimulation && failed === 1) {
-      $('check-note').textContent =
-        'NOTE: scenario D forces paused=true locally; the real agent was not paused.';
-    }
+    if (pausedSimulation && failed === 1) $('check-note').textContent = 'NOTE: scenario D forces paused=true locally; the real agent was not paused.';
   }
 
   $('check-form').addEventListener('submit', function (e) {
     e.preventDefault();
-    runCheck().catch((e) => {
+    runCheck().catch((err) => {
       var result = $('result');
       result.className = 'result bad';
-      result.innerHTML = `<span class="sim">Simulation — no transaction sent</span>
-        <span class="verdict">ERROR</span>
-        <br><span class="muted">${esc(e.message)}</span>`;
+      result.innerHTML = `<span class="sim">Simulation — no transaction sent</span><span class="verdict">ERROR</span><br><span class="muted">${esc(err.message)}</span>`;
       result.style.display = 'block';
     });
   });
 
-  // Live stat cards.
-  async function refreshStats() {
+  // ---- Live stat cards: throttled, cached, backoff ----
+  var lastGood = null;
+  var backoffMs = 20000;
+  var refreshTimer = null;
+  var refreshInFlight = false;
+
+  function renderStats(data, note) {
+    var policy = data.policy, spent = data.spent, audit = data.audit, updatedAt = data.updatedAt;
+    var paused = policy?.paused === true;
+    $('stat-policy').innerHTML =
+      `<div style="margin-bottom:4px;font-size:0.9rem;">per_tx_limit: <code>${esc(weiToEth(policy.per_tx_limit))} ETH</code></div>
+       <div style="font-size:0.9rem;">daily_cap: <code>${esc(weiToEth(policy.daily_cap))} ETH</code></div>`;
+    $('stat-status').innerHTML = paused ? '<span class="badge blocked">PAUSED</span>' : '<span class="badge allowed">ACTIVE</span>';
+    $('stat-status-limits').innerHTML =
+      `<div class="muted">per tx: <code>${esc(weiToEth(policy.per_tx_limit))} ETH</code></div>
+       <div class="muted">daily cap: <code>${esc(weiToEth(policy.daily_cap))} ETH</code></div>`;
+    var spentWei = BigInt(spent ?? '0');
+    $('stat-spent').innerHTML = `<span class="big">${weiToEth(spent)} ETH</span> <span class="muted">of ${esc(weiToEth(policy.daily_cap))} ETH cap</span>`;
+    var capWei = BigInt(policy.daily_cap ?? '1');
+    var pct = capWei > 0n ? Math.min(100, Number((spentWei * 10000n) / capWei) / 100) : 0;
+    $('spent-fill').style.width = `${pct}%`;
+    var last3 = [...(audit || [])].reverse().slice(0, 3);
+    if (last3.length === 0) $('last-decisions').innerHTML = '<div class="muted">No decisions yet.</div>';
+    else $('last-decisions').innerHTML = last3.map((e) => {
+      var badgeClass = e.decision === 'Allowed' ? 'badge allowed' : 'badge blocked';
+      return `<div class="decision-row"><span class="${badgeClass}">${esc(e.decision)}</span><span class="dr-addr" title="${esc(e.destination)}">${esc(shorten(e.destination))}</span><span class="dr-amt">${weiToEth(e.amount)} ETH</span><span class="dr-time">${fmtTime(e.timestamp)}</span></div>`;
+    }).join('');
+    $('updated').textContent = updatedAt.toLocaleTimeString();
+    var noteEl = $('refresh-note'); if (noteEl) noteEl.textContent = note || '';
+  }
+
+  function scheduleNext(ms) {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    if (document.hidden) return;
+    refreshTimer = setTimeout(() => refreshStats(false), ms);
+  }
+
+  async function refreshStats(force) {
+    if (refreshInFlight) return;
+    if (document.hidden && !force) return;
+    refreshInFlight = true;
+    if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
     try {
       var [policy, spent, audit] = await Promise.all([
-        rpcView('get_policy',     { agent_id: AGENT_ACCOUNT }),
-        rpcView('get_spent_today',{ agent_id: AGENT_ACCOUNT }),
-        rpcView('get_audit_log',  { from_index: 0, limit: 50 }),
+        rpcView('get_policy',      { agent_id: AGENT_ACCOUNT }),
+        rpcView('get_spent_today', { agent_id: AGENT_ACCOUNT }),
+        rpcView('get_audit_log',   { from_index: 0, limit: 50 }),
       ]);
-      var paused = policy?.paused === true;
-
-      $('stat-policy').innerHTML =
-        `<div style="margin-bottom:4px;font-size:0.9rem;">per_tx_limit: <code>${esc(weiToEth(policy.per_tx_limit))} ETH</code></div>
-         <div style="font-size:0.9rem;">daily_cap: <code>${esc(weiToEth(policy.daily_cap))} ETH</code></div>`;
-
-      $('stat-status').innerHTML =
-        paused
-          ? '<span class="badge blocked">PAUSED</span>'
-          : '<span class="badge allowed">ACTIVE</span>';
-
-      // Per-tx limit and daily cap displayed beneath the badge in the Status card
-      $('stat-status-limits').innerHTML =
-        `<div class="muted">per tx: <code>${esc(weiToEth(policy.per_tx_limit))} ETH</code></div>
-         <div class="muted">daily cap: <code>${esc(weiToEth(policy.daily_cap))} ETH</code></div>`;
-
-      var spentWei = BigInt(spent ?? '0');
-      $('stat-spent').innerHTML = `<span class="big">${weiToEth(spent)} ETH</span>
-        <span class="muted">of ${esc(weiToEth(policy.daily_cap))} ETH cap</span>`;
-      var capWei = BigInt(policy.daily_cap ?? '1');
-      var pct = capWei > 0n ? Math.min(100, Number((spentWei * 10000n) / capWei) / 100) : 0;
-      $('spent-fill').style.width = `${pct}%`;
-
-      // Last 3 decisions
-      var last3 = [...(audit || [])].reverse().slice(0, 3);
-      if (last3.length === 0) {
-        $('last-decisions').innerHTML = '<div class="muted">No decisions yet.</div>';
-      } else {
-        $('last-decisions').innerHTML = last3.map((e) => {
-          var badgeClass = e.decision === 'Allowed' ? 'badge allowed' : 'badge blocked';
-          return `<div class="decision-row">
-            <span class="${badgeClass}">${esc(e.decision)}</span>
-            <span class="dr-addr" title="${esc(e.destination)}">${esc(shorten(e.destination))}</span>
-            <span class="dr-amt">${weiToEth(e.amount)} ETH</span>
-            <span class="dr-time">${fmtTime(e.timestamp)}</span>
-          </div>`;
-        }).join('');
-      }
-
-      $('updated').textContent = new Date().toLocaleTimeString();
+      lastGood = { policy: policy, spent: spent, audit: audit, updatedAt: new Date() };
+      backoffMs = 20000;
+      renderStats(lastGood, '');
+      scheduleNext(20000);
     } catch (err) {
-      var msg = `failed to load: ${err.message}`;
-      ['stat-policy', 'stat-spent', 'stat-status'].forEach((id) => {
-        $(id).innerHTML = `<span class="err">${esc(msg)}</span>`;
-      });
-      var limitsEl = $('stat-status-limits');
-      if (limitsEl) limitsEl.innerHTML = '';
-      $('updated').textContent = 'error';
+      if (lastGood) {
+        renderStats(lastGood, ' — RPC busy, showing last data');
+      } else {
+        var msg = `failed to load: ${err.message}`;
+        ['stat-policy', 'stat-spent', 'stat-status'].forEach((id) => { $(id).innerHTML = `<span class="err">${esc(msg)}</span>`; });
+        var limitsEl = $('stat-status-limits'); if (limitsEl) limitsEl.innerHTML = '';
+        $('updated').textContent = 'error';
+        var noteEl = $('refresh-note'); if (noteEl) noteEl.textContent = '';
+      }
+      if (backoffMs < 30000) backoffMs = 30000; else backoffMs = Math.min(backoffMs * 2, 300000);
+      scheduleNext(backoffMs);
+    } finally {
+      refreshInFlight = false;
     }
   }
-  refreshStats();
-  setInterval(refreshStats, 5000);
+
+  refreshStats(true);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshStats(true); });
 })();
 </script>
 </body>
