@@ -13,10 +13,10 @@ window.AGENTFENCE_CONFIG = {
   AGENT_ACCOUNT: 'agentfence-agent-9a9635f2.testnet',
   // Ordered NEAR testnet JSON-RPC endpoints (browser-tested from official list)
   RPC_URLS: [
-    'https://archival-rpc.testnet.near.org', // NEAR (archival, rate-limited)
-    'https://test.rpc.fastnear.com',         // FASTNEAR
     'https://near-testnet.drpc.org',         // dRPC
     'https://testnet-rpc.intea.rs',          // Intear RPC
+    'https://test.rpc.fastnear.com',         // FASTNEAR
+    'https://archival-rpc.testnet.near.org', // NEAR (archival, rate-limited)
   ],
   // derived Sepolia address (see scripts/evm/derive-address.mjs)
   EVM_ADDRESS: '0x44c8f698d9C2711925Af1Df0b9BB3d4b62E8ea57',
