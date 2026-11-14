@@ -18,7 +18,8 @@ server" is claimed.
         "CONTRACT_ACCOUNT": "agentfence-contract-evm-0b497ae1.testnet",
         "AGENT_ACCOUNT": "agentfence-agent-9a9635f2.testnet",
         "AGENT_FCK_KEY_FILE": "~/.near-credentials/agentfence-agent-fck.txt",
-        "SEPOLIA_RPC_URL": "https://ethereum-sepolia-rpc.publicnode.com"
+        "SEPOLIA_RPC_URL": "https://ethereum-sepolia-rpc.publicnode.com",
+        "NEAR_RPC_URLS": "https://near-testnet.drpc.org,https://rpc.testnet.fastnear.com"
       }
     }
   }

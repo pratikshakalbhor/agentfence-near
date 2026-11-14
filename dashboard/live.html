@@ -181,7 +181,7 @@
   <section class="card" style="margin-bottom:var(--gap);">
     <h2>Audit log (newest first)</h2>
     <div id="audit" class="muted">loading…</div>
-    <div class="updated">last updated: <span id="updated">—</span> <button type="button" class="btn btn-outline" id="refresh-now">Refresh now</button></div>
+    <div class="updated">last updated: <span id="updated">—</span> <span id="refresh-note" class="muted"></span> <button type="button" class="btn btn-outline" id="refresh-now">Refresh now</button></div>
   </section>
 
   <section class="card" style="margin-bottom:var(--gap);">
@@ -239,19 +239,19 @@
 
 <script src="config.js"></script>
 <script>
-// Config (CONTRACT_ACCOUNT, AGENT_ACCOUNT, NEAR_RPC_URL, EVM_ADDRESS,
-// OWNER_ACCOUNT, NEAR_EXPLORER_TX_BASE) comes from dashboard/config.js.
-const { CONTRACT_ACCOUNT, AGENT_ACCOUNT, NEAR_RPC_URL, EVM_ADDRESS, OWNER_ACCOUNT, NEAR_EXPLORER_TX_BASE } = window.AGENTFENCE_CONFIG;
+// Config comes from dashboard/config.js. RPC providers from official NEAR docs:
+// https://docs.near.org/api/rpc/providers (Testnet public endpoints).
+const { CONTRACT_ACCOUNT, AGENT_ACCOUNT, RPC_URLS, EVM_ADDRESS, OWNER_ACCOUNT, NEAR_EXPLORER_TX_BASE } = window.AGENTFENCE_CONFIG;
+const RPC_ENDPOINTS = (Array.isArray(RPC_URLS) && RPC_URLS.length) ? RPC_URLS.slice() : ['https://test.rpc.fastnear.com'];
 // ======================================================================
 
 const $ = (id) => document.getElementById(id);
-const els = { policy: $('policy'), spent: $('spent'), spentFill: $('spent-fill'), audit: $('audit'), updated: $('updated') };
-const WEI_PER_ETH = 10n ** 18n; // kept for spent/cap math below
+const els = { policy: $('policy'), spent: $('spent'), spentFill: $('spent-fill'), audit: $('audit'), updated: $('updated'), note: $('refresh-note') };
+const WEI_PER_ETH = 10n ** 18n;
 
 function weiToEth(wei) {
   const v = BigInt(wei ?? '0');
   const w = 10n ** 18n;
-  // Round to at most 6 decimals (exact wei shown separately).
   const microTotal = ((v % w) * 1000000n + w / 2n) / w;
   const whole = v / w + (microTotal >= 1000000n ? 1n : 0n);
   const micro = microTotal % 1000000n;
@@ -285,10 +285,25 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+// ---- RPC client: fallback endpoints, skip on 429/network for 60s, remember last working ----
+const rpcSkipUntil = new Map(); // url -> timestamp ms
+let rpcLastGood = RPC_ENDPOINTS[0];
+let rpcId = 1;
+
+function rpcOrder() {
+  const now = Date.now();
+  const available = RPC_ENDPOINTS.filter((u) => (rpcSkipUntil.get(u) || 0) <= now);
+  const pool = available.length ? available : RPC_ENDPOINTS.slice();
+  const ordered = [];
+  if (pool.includes(rpcLastGood)) ordered.push(rpcLastGood);
+  for (const u of pool) if (!ordered.includes(u)) ordered.push(u);
+  return ordered;
+}
+
 async function rpcView(method, args) {
   const body = {
     jsonrpc: '2.0',
-    id: 'dot',
+    id: String(rpcId++),
     method: 'query',
     params: {
       request_type: 'call_function',
@@ -298,22 +313,44 @@ async function rpcView(method, args) {
       finality: 'final',
     },
   };
-  const res = await fetch(NEAR_RPC_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    cache: 'no-store',
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
-  const json = await res.json();
-  if (json.error) throw new Error(json.error.message || JSON.stringify(json.error));
-  const bytes = json.result.result;
-  const text = new TextDecoder().decode(new Uint8Array(bytes));
-  return JSON.parse(text);
+  let lastErr = null;
+  for (const url of rpcOrder()) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify(body),
+      });
+      if (res.status === 429) {
+        rpcSkipUntil.set(url, Date.now() + 60000);
+        lastErr = new Error('RPC HTTP 429');
+        continue;
+      }
+      if (!res.ok) {
+        rpcSkipUntil.set(url, Date.now() + 60000);
+        lastErr = new Error(`RPC HTTP ${res.status}`);
+        continue;
+      }
+      const json = await res.json();
+      if (json.error) {
+        lastErr = new Error(json.error.message || JSON.stringify(json.error));
+        continue;
+      }
+      rpcLastGood = url;
+      const bytes = json.result.result;
+      const text = new TextDecoder().decode(new Uint8Array(bytes));
+      return JSON.parse(text);
+    } catch (e) {
+      rpcSkipUntil.set(url, Date.now() + 60000);
+      lastErr = e;
+      continue;
+    }
+  }
+  throw lastErr || new Error('RPC request failed');
 }
 
-// Owner panel commands (built from config, never executed from the page).
-
+// ---- Owner panel commands (built from config, never executed from the page) ----
 function opEthToWei(eth) {
   const s = String(eth).trim();
   const m = /^(\d+)(?:\.(\d{0,18}))?$/.exec(s);
@@ -348,8 +385,7 @@ function opJsonFor(method, destination, perTxWei, dailyCapWei, paused) {
   }
 }
 
-let opCmds = []; // { label, method, ps, sh }
-
+let opCmds = [];
 function renderOpCommands(destination, perTxWei, dailyCapWei) {
   const container = $('op-cmds-container');
   const base = [
@@ -361,11 +397,7 @@ function renderOpCommands(destination, perTxWei, dailyCapWei) {
   ];
   opCmds = base.map((c) => {
     const json = opJsonFor(c.method, destination, perTxWei, dailyCapWei, c.paused);
-    return {
-      label: c.label,
-      ps: opPsCmd(c.method, json),
-      sh: opBashCmd(c.method, json),
-    };
+    return { label: c.label, ps: opPsCmd(c.method, json), sh: opBashCmd(c.method, json) };
   });
   container.innerHTML = opCmds.map((c, i) => `
     <div class="op-cmd">
@@ -377,19 +409,10 @@ function renderOpCommands(destination, perTxWei, dailyCapWei) {
   container.querySelectorAll('button').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const i = Number(btn.dataset.i);
-      const form = btn.dataset.form;
-      const cmd = form === 'ps' ? opCmds[i].ps : opCmds[i].sh;
-      try {
-        await navigator.clipboard.writeText(cmd);
-        btn.textContent = 'Copied';
-      } catch {
-        const ta = document.createElement('textarea');
-        ta.value = cmd;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        ta.remove();
-        btn.textContent = 'Copied';
+      const cmd = btn.dataset.form === 'ps' ? opCmds[i].ps : opCmds[i].sh;
+      try { await navigator.clipboard.writeText(cmd); btn.textContent = 'Copied'; }
+      catch {
+        const ta = document.createElement('textarea'); ta.value = cmd; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); btn.textContent = 'Copied';
       }
       setTimeout(() => (btn.textContent = btn.dataset.form === 'ps' ? 'Copy PS' : 'Copy Bash'), 1500);
     });
@@ -402,185 +425,166 @@ function renderOp() {
   const dailyCapRaw = $('op-daily-cap').value.trim();
   const errEl = $('op-limits-error');
   const destErrEl = $('op-dest-error');
-  let valid = true;
-
-  if (destination !== '') {
-    if (!opValidAddress(destination)) {
-      destErrEl.style.display = '';
-      valid = false;
-    } else {
-      destErrEl.style.display = 'none';
-    }
-  } else {
-    destErrEl.style.display = 'none';
-  }
-
+  if (destination !== '') destErrEl.style.display = opValidAddress(destination) ? 'none' : '';
+  else destErrEl.style.display = 'none';
   const perTxWei = perTxRaw !== '' ? opEthToWei(perTxRaw) : null;
   const dailyCapWei = dailyCapRaw !== '' ? opEthToWei(dailyCapRaw) : null;
-
   if (perTxRaw !== '' || dailyCapRaw !== '') {
-    if (perTxWei === null || dailyCapWei === null) {
-      errEl.textContent = 'Invalid ETH amount (use decimals, e.g. 0.01).';
-      errEl.style.display = '';
-      valid = false;
-    } else if (perTxWei <= 0n) {
-      errEl.textContent = 'Per-tx limit must be greater than 0.';
-      errEl.style.display = '';
-      valid = false;
-    } else if (perTxWei > dailyCapWei) {
-      errEl.textContent = 'Per-tx limit must not exceed daily cap.';
-      errEl.style.display = '';
-      valid = false;
-    } else {
-      errEl.style.display = 'none';
-    }
-  } else {
-    errEl.style.display = 'none';
-  }
-
+    if (perTxWei === null || dailyCapWei === null) { errEl.textContent = 'Invalid ETH amount (use decimals, e.g. 0.01).'; errEl.style.display = ''; }
+    else if (perTxWei <= 0n) { errEl.textContent = 'Per-tx limit must be greater than 0.'; errEl.style.display = ''; }
+    else if (perTxWei > dailyCapWei) { errEl.textContent = 'Per-tx limit must not exceed daily cap.'; errEl.style.display = ''; }
+    else { errEl.style.display = 'none'; }
+  } else { errEl.style.display = 'none'; }
   const show = destination !== '' && opValidAddress(destination) && perTxWei !== null && dailyCapWei !== null && perTxWei > 0n && perTxWei <= dailyCapWei;
-  if (show) {
-    renderOpCommands(destination, perTxWei, dailyCapWei);
-    containerVisible();
-  } else {
-    $('op-cmds-container').innerHTML = '';
-  }
+  if (show) renderOpCommands(destination, perTxWei, dailyCapWei);
+  else $('op-cmds-container').innerHTML = '';
 }
 
-function containerVisible() {
-  $('op-cmds-container').style.display = '';
+// ---- Cached state & refresh control ----
+let lastGood = null; // { policy, spent, audit, updatedAt }
+let auditCache = [];
+let auditFullyLoaded = false;
+let backoffMs = 20000;
+let refreshTimer = null;
+let refreshInFlight = false;
+
+function renderData(data, note) {
+  const { policy, spent, audit, updatedAt } = data;
+  const paused = policy?.paused === true;
+  els.policy.innerHTML = `
+    <div class="big">${paused ? '<span class="badge blocked">PAUSED</span>' : '<span class="badge allowed">ACTIVE</span>'}</div>
+    <div>per_tx_limit: <code>${esc(weiToEth(policy.per_tx_limit))} ETH</code></div>
+    <div>daily_cap: <code>${esc(weiToEth(policy.daily_cap))} ETH</code></div>`;
+  const spentWei = BigInt(spent ?? '0');
+  const capWei = BigInt(policy.daily_cap ?? '1');
+  const pct = capWei > 0n ? Math.min(100, Number((spentWei * 10000n) / capWei) / 100) : 0;
+  els.spent.innerHTML = `<span class="big">${weiToEth(spent)} ETH</span> of <code>${esc(weiToEth(policy.daily_cap))} ETH</code> cap`;
+  els.spentFill.style.width = `${pct}%`;
+  const rows = [...audit].reverse().map((e, i) => `
+    <tr class="audit-main" data-idx="${i}">
+      <td>${e.id}</td>
+      <td>${fmtTime(e.timestamp)}</td>
+      <td><code title="${esc(e.agent_id)}">${esc(shorten(e.agent_id))}</code></td>
+      <td><code title="${esc(e.destination)}">${esc(shorten(e.destination))}</code></td>
+      <td>${weiToEth(e.amount)} ETH<br><span class="muted">${esc(e.amount)}</span></td>
+      <td>${e.decision === 'Allowed' ? '<span class="badge allowed">Allowed</span>' : '<span class="badge blocked">Blocked</span>'}</td>
+      <td>${esc(e.reason ?? '—')}</td>
+      <td class="toggle-cell">▸</td>
+    </tr>
+    <tr class="audit-detail" id="detail-${i}" style="display:none">
+      <td colspan="8">
+        <strong>id:</strong> ${e.id}<br>
+        <strong>timestamp:</strong> ${e.timestamp} (${fmtTime(e.timestamp)})<br>
+        <strong>agent:</strong> <code>${esc(e.agent_id)}</code><br>
+        <strong>destination:</strong> <code>${esc(e.destination)}</code><br>
+        <strong>amount:</strong> ${esc(e.amount)} wei (${weiToEth(e.amount)} ETH)<br>
+        <strong>decision:</strong> ${esc(e.decision)}<br>
+        <strong>reason:</strong> ${esc(e.reason ?? '—')}
+        ${payloadHashDetail(e)}
+      </td>
+    </tr>`).join('');
+  els.audit.innerHTML = `
+    <table>
+      <thead><tr><th>id</th><th>time</th><th>agent</th><th>destination</th><th>amount</th><th>decision</th><th>reason</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  document.querySelectorAll('.audit-main').forEach((tr, i) => {
+    tr.addEventListener('click', () => toggleDetail(i));
+  });
+  els.updated.textContent = updatedAt.toLocaleTimeString();
+  els.updated.classList.remove('err');
+  if (els.note) els.note.textContent = note || '';
 }
 
-$('op-agent').value = AGENT_ACCOUNT;
-
-['op-destination', 'op-per-tx', 'op-daily-cap'].forEach((id) => {
-  $(id).addEventListener('input', renderOp);
-});
-
-$('op-check').addEventListener('click', async () => {
-  const destination = $('op-destination').value.trim();
-  const errEl = $('op-dest-error');
-  const resultEl = $('op-check-result');
-  if (!opValidAddress(destination)) {
-    errEl.style.display = '';
-    resultEl.textContent = '';
-    return;
-  }
-  errEl.style.display = 'none';
-  resultEl.textContent = 'checking…';
-  try {
-    const allowed = await rpcView('is_destination_allowed', { agent_id: AGENT_ACCOUNT, destination: 'evm:' + destination });
-    if (allowed === true) {
-      resultEl.innerHTML = '<span class="badge allowed">Approved</span>';
-    } else {
-      resultEl.innerHTML = '<span style="color:var(--muted)">Not approved</span>';
-    }
-  } catch (e) {
-    resultEl.innerHTML = `<span class="err">check failed: ${esc(e.message)}</span>`;
-  }
-});
-
-async function fetchAuditLog() {
-  const all = [];
-  let fromIndex = 0;
+async function fetchAuditTail() {
   const limit = 50;
   const maxRows = 500;
-  while (all.length < maxRows) {
+  if (!auditFullyLoaded) {
+    // First full load: page from 0
+    auditCache = [];
+    let fromIndex = 0;
+    while (auditCache.length < maxRows) {
+      const page = await rpcView('get_audit_log', { from_index: fromIndex, limit });
+      if (!page || page.length === 0) break;
+      auditCache.push(...page);
+      if (page.length < limit) break;
+      fromIndex += limit;
+    }
+    auditFullyLoaded = true;
+    return auditCache;
+  }
+  // Tail only: fetch new entries from last known length
+  let fromIndex = auditCache.length;
+  while (auditCache.length < maxRows) {
     const page = await rpcView('get_audit_log', { from_index: fromIndex, limit });
     if (!page || page.length === 0) break;
-    all.push(...page);
+    auditCache.push(...page);
+    fromIndex += page.length;
     if (page.length < limit) break;
-    fromIndex += limit;
   }
-  return all;
+  // keep only latest maxRows if exceeded
+  if (auditCache.length > maxRows) auditCache = auditCache.slice(-maxRows);
+  return auditCache;
 }
 
-async function refresh() {
+function scheduleNext(ms) {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  if (document.hidden) return; // paused while hidden; resumed on visibilitychange
+  refreshTimer = setTimeout(() => refresh(false), ms);
+}
+
+async function refresh(force) {
+  if (refreshInFlight) return;
+  if (document.hidden && !force) return;
+  refreshInFlight = true;
+  if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
   try {
-    const [policy, spent, audit] = await Promise.all([
-      rpcView('get_policy',     { agent_id: AGENT_ACCOUNT }),
-      rpcView('get_spent_today',{ agent_id: AGENT_ACCOUNT }),
-      fetchAuditLog(),
+    const [policy, spent] = await Promise.all([
+      rpcView('get_policy',      { agent_id: AGENT_ACCOUNT }),
+      rpcView('get_spent_today', { agent_id: AGENT_ACCOUNT }),
     ]);
-    const paused = policy?.paused === true;
-    els.policy.innerHTML = `
-      <div class="big">${paused ? '<span class="badge blocked">PAUSED</span>' : '<span class="badge allowed">ACTIVE</span>'}</div>
-      <div>per_tx_limit: <code>${esc(weiToEth(policy.per_tx_limit))} ETH</code></div>
-      <div>daily_cap: <code>${esc(weiToEth(policy.daily_cap))} ETH</code></div>`;
-    const spentWei = BigInt(spent ?? '0');
-    const capWei = BigInt(policy.daily_cap ?? '1');
-    const pct = capWei > 0n ? Math.min(100, Number((spentWei * 10000n) / capWei) / 100) : 0;
-    els.spent.innerHTML = `<span class="big">${weiToEth(spent)} ETH</span> of <code>${esc(weiToEth(policy.daily_cap))} ETH</code> cap`;
-    els.spentFill.style.width = `${pct}%`;
-    const rows = [...audit].reverse().map((e, i) => `
-      <tr class="audit-main" data-idx="${i}">
-        <td>${e.id}</td>
-        <td>${fmtTime(e.timestamp)}</td>
-        <td><code title="${esc(e.agent_id)}">${esc(shorten(e.agent_id))}</code></td>
-        <td><code title="${esc(e.destination)}">${esc(shorten(e.destination))}</code></td>
-        <td>${weiToEth(e.amount)} ETH<br><span class="muted">${esc(e.amount)}</span></td>
-        <td>${e.decision === 'Allowed' ? '<span class="badge allowed">Allowed</span>' : '<span class="badge blocked">Blocked</span>'}</td>
-        <td>${esc(e.reason ?? '—')}</td>
-        <td class="toggle-cell">▸</td>
-      </tr>
-      <tr class="audit-detail" id="detail-${i}" style="display:none">
-        <td colspan="8">
-          <strong>id:</strong> ${e.id}<br>
-          <strong>timestamp:</strong> ${e.timestamp} (${fmtTime(e.timestamp)})<br>
-          <strong>agent:</strong> <code>${esc(e.agent_id)}</code><br>
-          <strong>destination:</strong> <code>${esc(e.destination)}</code><br>
-          <strong>amount:</strong> ${esc(e.amount)} wei (${weiToEth(e.amount)} ETH)<br>
-          <strong>decision:</strong> ${esc(e.decision)}<br>
-          <strong>reason:</strong> ${esc(e.reason ?? '—')}
-          ${payloadHashDetail(e)}
-        </td>
-      </tr>`).join('');
-    els.audit.innerHTML = `
-      <table>
-        <thead><tr><th>id</th><th>time</th><th>agent</th><th>destination</th><th>amount</th><th>decision</th><th>reason</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
-    document.querySelectorAll('.audit-main').forEach((tr, i) => {
-      tr.addEventListener('click', () => toggleDetail(i));
-    });
-    els.updated.textContent = new Date().toLocaleTimeString();
-    els.updated.classList.remove('err');
+    const audit = await fetchAuditTail();
+    lastGood = { policy, spent, audit: audit.slice(), updatedAt: new Date() };
+    backoffMs = 20000;
+    renderData(lastGood, '');
+    scheduleNext(20000);
   } catch (err) {
-    const now = new Date().toLocaleTimeString();
-    els.updated.textContent = `last updated: ${now} (last refresh failed: ${esc(err.message)})`;
-    els.updated.classList.add('err');
+    const now = new Date();
+    if (lastGood) {
+      renderData({ ...lastGood, updatedAt: lastGood.updatedAt }, ' (RPC busy, showing last data)');
+      // keep original last updated time text but add note; adjust display
+      els.updated.textContent = `${lastGood.updatedAt.toLocaleTimeString()}`;
+      if (els.note) els.note.textContent = ' — RPC busy, showing last data';
+      els.updated.classList.add('err');
+    } else {
+      els.updated.textContent = `last refresh failed: ${esc(err.message)}`;
+      els.updated.classList.add('err');
+      if (els.note) els.note.textContent = '';
+    }
+    const next = Math.min(Math.max(backoffMs, 30000) * (backoffMs >= 30000 ? 2 : 1), 300000);
+    // backoff sequence 30,60,120,300 after failure
+    if (backoffMs < 30000) backoffMs = 30000; else backoffMs = Math.min(backoffMs * 2, 300000);
+    scheduleNext(backoffMs);
   } finally {
-    setTimeout(refresh, 5000);
+    refreshInFlight = false;
   }
 }
 
-/** Owner panel initialization — isolated in its own try/catch so an error
- * here can NEVER stop policy / spend today / audit log loading. */
+// ---- Owner panel initialization ----
 try {
   $('op-agent').value = AGENT_ACCOUNT;
-
-  ['op-destination', 'op-per-tx', 'op-daily-cap'].forEach((id) => {
-    $(id).addEventListener('input', renderOp);
-  });
-
+  ['op-destination', 'op-per-tx', 'op-daily-cap'].forEach((id) => $(id).addEventListener('input', renderOp));
   $('op-check').addEventListener('click', async () => {
     const destination = $('op-destination').value.trim();
     const errEl = $('op-dest-error');
     const resultEl = $('op-check-result');
-    if (!opValidAddress(destination)) {
-      errEl.style.display = '';
-      resultEl.textContent = '';
-      return;
-    }
+    if (!opValidAddress(destination)) { errEl.style.display = ''; resultEl.textContent = ''; return; }
     errEl.style.display = 'none';
     resultEl.textContent = 'checking…';
     try {
       const allowed = await rpcView('is_destination_allowed', { agent_id: AGENT_ACCOUNT, destination: 'evm:' + destination });
-      if (allowed === true) {
-        resultEl.innerHTML = '<span class="badge allowed">Approved</span>';
-      } else {
-        resultEl.innerHTML = '<span style="color:var(--muted)">Not approved</span>';
-      }
+      if (allowed === true) resultEl.innerHTML = '<span class="badge allowed">Approved</span>';
+      else resultEl.innerHTML = '<span style="color:var(--muted)">Not approved</span>';
     } catch (e) {
       resultEl.innerHTML = `<span class="err">check failed: ${esc(e.message)}</span>`;
     }
@@ -592,16 +596,10 @@ try {
 $('evm-address').textContent = EVM_ADDRESS;
 $('evm-link').href = `https://sepolia.etherscan.io/address/${EVM_ADDRESS}`;
 
-refresh();
-
-$('refresh-now').addEventListener('click', () => {
-  refresh();
-});
-
+refresh(true);
+$('refresh-now').addEventListener('click', () => refresh(true));
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    refresh();
-  }
+  if (document.visibilityState === 'visible') refresh(true);
 });
 </script>
 </body>

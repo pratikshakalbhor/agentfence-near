@@ -21,7 +21,7 @@ interface Config {
   agentAccount: string;
   agentKeyFile: string;
   evmRpcUrl?: string;
-  nearRpcUrl?: string;
+  nearRpcUrls?: string[];
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): Config {
@@ -33,12 +33,16 @@ export function loadConfig(env: NodeJS.ProcessEnv): Config {
   if (missing.length > 0) {
     throw new Error(`missing required env vars: ${missing.join(', ')}`);
   }
+  const nearRpcUrls = (env.NEAR_RPC_URLS || env.NEAR_RPC_URL || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   return {
     contractAccount: env.CONTRACT_ACCOUNT!,
     agentAccount: env.AGENT_ACCOUNT!,
     agentKeyFile: env.AGENT_FCK_KEY_FILE!,
     evmRpcUrl: env.SEPOLIA_RPC_URL || undefined,
-    nearRpcUrl: env.NEAR_RPC_URL || undefined,
+    ...(nearRpcUrls.length ? { nearRpcUrls } : {}),
   };
 }
 
@@ -51,7 +55,7 @@ export function makeFence(config: Config): AgentFence {
     agentAccount: config.agentAccount,
     agentKeyFile: config.agentKeyFile,
     evmRpcUrl: config.evmRpcUrl,
-    nearRpcUrl: config.nearRpcUrl,
+    ...(config.nearRpcUrls ? { nearRpcUrls: config.nearRpcUrls } : {}),
   });
 }
 

@@ -1,5 +1,6 @@
 // Offline unit tests: all network seams are replaced with mocks.
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { Account, KeyPair } from 'near-api-js';
 import {
   AgentFence,
   AgentFenceError,
@@ -10,6 +11,12 @@ import {
   MAX_FEE_WEI,
   type SpendContractResult,
 } from '../src/index.js';
+
+const TEST_FCK_KEY = KeyPair.fromRandom('ed25519').toString();
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 const DERIVED = '0x44c8f698d9C2711925Af1Df0b9BB3d4b62E8ea57' as const;
 const OTHER = '0x1111111111111111111111111111111111111111' as const;
@@ -189,5 +196,57 @@ describe('attachSignature', () => {
       gas_limit: 21000,
     });
     expect(attached.signedTx).toMatch(/^0x02/);
+  });
+});
+
+describe('request_spend failover', () => {
+  const spendArgs = {
+    destination: `evm:${OTHER}`,
+    amount: '50',
+    nonce: 0,
+    max_fee_per_gas: '1000000000',
+    max_priority_fee_per_gas: '100000000',
+    gas_limit: 21000,
+  };
+
+  function makeRpcClient() {
+    const client = new AgentFence({
+      network: 'testnet',
+      contractAccount: 'agentfence-contract-evm-0b497ae1.testnet',
+      agentAccount: 'agentfence-agent-9a9635f2.testnet',
+      agentKey: TEST_FCK_KEY,
+      nearRpcUrls: ['https://rpc1.example', 'https://rpc2.example'],
+    });
+    return client as unknown as {
+      requestSpendRpc: (args: typeof spendArgs) => Promise<SpendContractResult>;
+      provider: { connection?: { url?: string } };
+    };
+  }
+
+  it('retries on HTTP 429 before processing and uses the next endpoint', async () => {
+    const client = makeRpcClient();
+    const call = vi
+      .spyOn(Account.prototype, 'callFunction')
+      .mockRejectedValueOnce(new Error('RPC HTTP 429 Too Many Requests'))
+      .mockResolvedValueOnce(allowedResult() as never);
+
+    const result = await client.requestSpendRpc(spendArgs);
+
+    expect(result.decision).toBe('Allowed');
+    expect(call).toHaveBeenCalledTimes(2);
+    expect((client.provider as any).connection?.url).toBe('https://rpc2.example');
+  });
+
+  it('does not retry on timeout after sending and surfaces audit guidance', async () => {
+    const client = makeRpcClient();
+    const call = vi
+      .spyOn(Account.prototype, 'callFunction')
+      .mockRejectedValueOnce(new Error('request timed out'));
+
+    await expect(client.requestSpendRpc(spendArgs)).rejects.toMatchObject({
+      code: 'NETWORK',
+      message: expect.stringContaining('check `agentfence audit` before trying again'),
+    });
+    expect(call).toHaveBeenCalledTimes(1);
   });
 });

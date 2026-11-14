@@ -19,12 +19,81 @@ program
   .name('agentfence')
   .description('agentfence command-line tool (SDK for reads, near CLI for owner writes)');
 
+function parseNearRpcUrls(): string[] {
+  const urls = (process.env.NEAR_RPC_URLS || process.env.NEAR_RPC_URL || 'https://test.rpc.fastnear.com')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return urls.length ? Array.from(new Set(urls)) : ['https://test.rpc.fastnear.com'];
+}
+
 const config = {
   contractAccount: process.env.CONTRACT_ACCOUNT ?? '',
   agentAccount: process.env.AGENT_ACCOUNT ?? '',
   evmRpcUrl: process.env.SEPOLIA_RPC_URL ?? undefined,
-  nearRpcUrl: process.env.NEAR_RPC_URL ?? undefined,
+  nearRpcUrls: parseNearRpcUrls(),
 };
+
+const nearRpcSkipUntil = new Map<string, number>();
+let nearRpcLastGood = config.nearRpcUrls[0];
+
+function nearRpcOrder(): string[] {
+  const now = Date.now();
+  const available = config.nearRpcUrls.filter((u) => (nearRpcSkipUntil.get(u) || 0) <= now);
+  const pool = available.length ? available : config.nearRpcUrls.slice();
+  const ordered: string[] = [];
+  if (pool.includes(nearRpcLastGood)) ordered.push(nearRpcLastGood);
+  for (const u of pool) if (!ordered.includes(u)) ordered.push(u);
+  return ordered;
+}
+
+async function nearRpcView(method: string, args: Record<string, unknown>): Promise<unknown> {
+  const body = {
+    jsonrpc: '2.0',
+    id: 'dot',
+    method: 'query',
+    params: {
+      request_type: 'call_function',
+      account_id: config.contractAccount,
+      method_name: method,
+      args_base64: Buffer.from(JSON.stringify(args), 'utf8').toString('base64'),
+      finality: 'final',
+    },
+  };
+  let lastErr: unknown = null;
+  for (const url of nearRpcOrder()) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 429) {
+        nearRpcSkipUntil.set(url, Date.now() + 60000);
+        lastErr = new Error(`RPC HTTP 429`);
+        continue;
+      }
+      if (!res.ok) {
+        nearRpcSkipUntil.set(url, Date.now() + 60000);
+        lastErr = new Error(`RPC HTTP ${res.status}`);
+        continue;
+      }
+      const json = (await res.json()) as { error?: { message?: string }; result?: { result: number[] } };
+      if (json.error) {
+        lastErr = new Error(json.error.message ?? 'view call failed');
+        continue;
+      }
+      nearRpcLastGood = url;
+      const text = new TextDecoder().decode(new Uint8Array(json.result!.result));
+      return JSON.parse(text);
+    } catch (e) {
+      nearRpcSkipUntil.set(url, Date.now() + 60000);
+      lastErr = e;
+      continue;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr ?? 'RPC request failed'));
+}
 
 function fence(): AgentFence {
   const fckFile = process.env.AGENT_FCK_KEY_FILE;
@@ -37,7 +106,7 @@ function fence(): AgentFence {
     agentAccount: config.agentAccount,
     agentKeyFile: fckFile,
     evmRpcUrl: config.evmRpcUrl,
-    nearRpcUrl: config.nearRpcUrl,
+    nearRpcUrls: config.nearRpcUrls,
   });
 }
 
@@ -61,40 +130,21 @@ function weiToEth(wei: bigint): string {
 }
 
 /** View-only check used to skip already-allowed destinations in `apply`.
- *  No signing is involved. */
+ *  No signing is involved. Uses NEAR_RPC_URL/NEAR_RPC_URLS with fallbacks. */
 async function checkDestinationAllowed(
   contract: string,
   agent: string,
   destination: string,
 ): Promise<boolean> {
-  const rpc = config.nearRpcUrl ?? 'https://test.rpc.fastnear.com';
-  const body = {
-    jsonrpc: '2.0',
-    id: 'dot',
-    method: 'query',
-    params: {
-      request_type: 'call_function',
-      account_id: contract,
-      method_name: 'is_destination_allowed',
-      args_base64: Buffer.from(
-        JSON.stringify({ agent_id: agent, destination }),
-        'utf8',
-      ).toString('base64'),
-      finality: 'final',
-    },
-  };
-  const res = await fetch(rpc, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const json = (await res.json()) as {
-    error?: { message?: string };
-    result?: { result: number[] };
-  };
-  if (json.error) throw new Error(json.error.message ?? 'view call failed');
-  const text = new TextDecoder().decode(new Uint8Array(json.result!.result));
-  return JSON.parse(text) === true;
+  // override contract in case it differs (config.contractAccount is usually same)
+  const prev = config.contractAccount;
+  if (contract) config.contractAccount = contract;
+  try {
+    const result = await nearRpcView('is_destination_allowed', { agent_id: agent, destination });
+    return result === true;
+  } finally {
+    config.contractAccount = prev;
+  }
 }
 
 program

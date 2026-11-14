@@ -81,6 +81,7 @@ export interface AgentFenceOptions {
   agentKey?: string;
   evmRpcUrl?: string;
   nearRpcUrl?: string;
+  nearRpcUrls?: string[];
 }
 
 export interface SpendContractResult {
@@ -276,12 +277,56 @@ type Deps = {
   ) => Promise<{ hash: `0x${string}`; status: string; blockNumber: bigint }>;
 };
 
+function parseNearRpcUrls(opts: AgentFenceOptions): string[] {
+  const envUrls = (typeof process !== 'undefined' && process.env?.NEAR_RPC_URLS)
+    ? process.env.NEAR_RPC_URLS.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+  const envUrl = (typeof process !== 'undefined' && process.env?.NEAR_RPC_URL)
+    ? process.env.NEAR_RPC_URL.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+  const optUrls = Array.isArray(opts.nearRpcUrls) && opts.nearRpcUrls.length
+    ? opts.nearRpcUrls.map((s) => String(s).trim()).filter(Boolean)
+    : [];
+  const optUrl = opts.nearRpcUrl
+    ? String(opts.nearRpcUrl).split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+  const list = optUrls.length ? optUrls : (optUrl.length ? optUrl : (envUrls.length ? envUrls : (envUrl.length ? envUrl : [NEAR_RPC_DEFAULT])));
+  return Array.from(new Set(list));
+}
+
+function isSpendRetryableBeforeProcessing(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  const code = (err as any)?.code ?? (err as any)?.cause?.code;
+  // Clearly rejected before processing.
+  if (/\b429\b|Too Many Requests/i.test(msg)) return true;
+  if (/\b503\b|Service Unavailable/i.test(msg)) return true;
+
+  // Timeouts/aborted connections after the request was sent are ambiguous: do not retry.
+  if (/timeout|timed out|ETIMEDOUT|aborted|abort|ECONNRESET|socket hang up/i.test(msg)) return false;
+  if (code === 'ETIMEDOUT' || code === 'ECONNABORTED' || code === 'ECONNRESET') return false;
+
+  // Connection/DNS errors that occurred before any response.
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN' || code === 'ECONNREFUSED') return true;
+  if (/ENOTFOUND|EAI_AGAIN|getaddrinfo|ECONNREFUSED/i.test(msg)) return true;
+  return false;
+}
+
+function spendAmbiguousOrUnsafeError(err: unknown): Error {
+  const base = err instanceof Error ? err.message : String(err ?? 'unknown error');
+  return new AgentFenceError(
+    'NETWORK',
+    `request_spend failed (${base}). Do not retry blindly; check \`agentfence audit\` before trying again.`,
+  );
+}
+
 export class AgentFence {
   private readonly opts: AgentFenceOptions;
-  private readonly nearRpcUrl: string;
+  private readonly nearRpcUrls: string[];
+  private readonly nearRpcSkipUntil = new Map<string, number>();
+  private nearRpcLastGood: string;
   private readonly evmRpcUrl: string;
   private readonly fckSecretKey: string;
-  private readonly provider: JsonRpcProvider;
+  private provider: JsonRpcProvider;
   private readonly deps: Deps;
 
   constructor(opts: AgentFenceOptions) {
@@ -295,7 +340,8 @@ export class AgentFence {
       throw new AgentFenceError('CONFIG', 'contractAccount and agentAccount are required');
     }
     this.opts = opts;
-    this.nearRpcUrl = opts.nearRpcUrl ?? NEAR_RPC_DEFAULT;
+    this.nearRpcUrls = parseNearRpcUrls(opts);
+    this.nearRpcLastGood = this.nearRpcUrls[0];
     this.evmRpcUrl = opts.evmRpcUrl ?? SEPOLIA_RPC_DEFAULT;
     // Secrets are loaded by the caller-provided key material; the key
     // string itself is never logged.
@@ -306,29 +352,105 @@ export class AgentFence {
       );
     }
     this.fckSecretKey = opts.agentKey ?? ''; // file case resolved in init()
-    this.provider = new JsonRpcProvider({ url: this.nearRpcUrl });
+    this.provider = new JsonRpcProvider({ url: this.nearRpcLastGood });
     this.deps = {
       deriveEvmAddress: (c, a, rpc) => deriveEvmAddress(c, a, rpc),
       getNonceAndFees: (addr, rpc) => getNonceAndFees(addr, rpc),
-      nearCallView: (method, args) =>
-        this.provider.callFunction({
-          contractId: opts.contractAccount,
-          method,
-          args: args as unknown as Record<string, unknown>,
-        }),
-      nearRequestSpend: async (args) =>
-        (await this.accountFor().then((acc) => acc.callFunction({
-          contractId: opts.contractAccount,
-          methodName: 'request_spend',
-          args: args as unknown as Record<string, unknown>,
-          gas: '400000000000000',
-          deposit: '0',
-        })) as unknown as SpendContractResult),
+      nearCallView: (method, args) => this.callViewRpc(method, args),
+      nearRequestSpend: async (args) => this.requestSpendRpc(args),
       attachSignature: (result, args) => attachSignature(result, args),
       recoverSigner: (hash, attached) => recoverSigner(hash, attached),
       broadcastSepolia: async (signedTx) =>
         broadcastSepolia(signedTx, this.evmRpcUrl),
     };
+  }
+
+  private rpcOrder(): string[] {
+    const now = Date.now();
+    const available = this.nearRpcUrls.filter((u) => (this.nearRpcSkipUntil.get(u) || 0) <= now);
+    const pool = available.length ? available : this.nearRpcUrls.slice();
+    const ordered: string[] = [];
+    if (pool.includes(this.nearRpcLastGood)) ordered.push(this.nearRpcLastGood);
+    for (const u of pool) if (!ordered.includes(u)) ordered.push(u);
+    return ordered;
+  }
+
+  private async callViewRpc(method: string, args: Record<string, unknown>): Promise<unknown> {
+    const body = {
+      jsonrpc: '2.0',
+      id: 'sdk',
+      method: 'query',
+      params: {
+        request_type: 'call_function',
+        account_id: this.opts.contractAccount,
+        method_name: method,
+        args_base64: Buffer.from(JSON.stringify(args)).toString('base64'),
+        finality: 'final',
+      },
+    };
+    let lastErr: unknown = null;
+    for (const url of this.rpcOrder()) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (res.status === 429) {
+          this.nearRpcSkipUntil.set(url, Date.now() + 60000);
+          lastErr = new Error('RPC HTTP 429');
+          continue;
+        }
+        if (!res.ok) {
+          this.nearRpcSkipUntil.set(url, Date.now() + 60000);
+          lastErr = new Error(`RPC HTTP ${res.status}`);
+          continue;
+        }
+        const json = await res.json() as any;
+        if (json.error) {
+          lastErr = new Error(json.error.message || JSON.stringify(json.error));
+          continue;
+        }
+        this.nearRpcLastGood = url;
+        this.provider = new JsonRpcProvider({ url });
+        const text = new TextDecoder().decode(new Uint8Array(json.result.result));
+        return JSON.parse(text);
+      } catch (e) {
+        this.nearRpcSkipUntil.set(url, Date.now() + 60000);
+        lastErr = e;
+        continue;
+      }
+    }
+    throw lastErr instanceof Error ? lastErr : new Error(String(lastErr ?? 'RPC request failed'));
+  }
+
+  private async requestSpendRpc(args: SpendContractArgs): Promise<SpendContractResult> {
+    let lastErr: unknown = null;
+    const key = await this.resolveFckKey();
+    for (const url of this.rpcOrder()) {
+      try {
+        this.provider = new JsonRpcProvider({ url });
+        const account = new Account(this.opts.agentAccount, this.provider, key as never);
+        const result = await account.callFunction({
+          contractId: this.opts.contractAccount,
+          methodName: 'request_spend',
+          args: args as unknown as Record<string, unknown>,
+          gas: '400000000000000',
+          deposit: '0',
+        });
+        this.nearRpcLastGood = url;
+        return result as unknown as SpendContractResult;
+      } catch (e) {
+        if (isSpendRetryableBeforeProcessing(e)) {
+          this.nearRpcSkipUntil.set(url, Date.now() + 60000);
+          lastErr = e;
+          continue;
+        }
+        throw spendAmbiguousOrUnsafeError(e);
+      }
+    }
+    // Only reached when every attempted endpoint clearly rejected before processing.
+    throw spendAmbiguousOrUnsafeError(lastErr ?? new Error('RPC request failed'));
   }
 
   private async resolveFckKey(): Promise<string> {
@@ -352,11 +474,6 @@ export class AgentFence {
     }
   }
 
-  private async accountFor(): Promise<Account> {
-    const key = await this.resolveFckKey();
-    return new Account(this.opts.agentAccount, this.provider, key as never);
-  }
-
   private async callView(
     method: string,
     args: Record<string, unknown>,
@@ -367,8 +484,6 @@ export class AgentFence {
   private async requestSpend(
     args: SpendContractArgs,
   ): Promise<SpendContractResult> {
-    const key = await this.resolveFckKey();
-    void key;
     return this.deps.nearRequestSpend(args);
   }
 
