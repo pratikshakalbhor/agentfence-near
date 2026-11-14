@@ -421,6 +421,8 @@ scoring.
 | Track fit (AI Security & Defense) | Function-call keys, scoped access, spending limits, policy engine, audit log |
 | Execution | Real Sepolia transaction, SDK, MCP server, CLI, dashboard |
 
+AI coding assistants were used to help write this project. Libraries: near-sdk, viem, chainsig.js, near-api-js, @modelcontextprotocol/server, @modelcontextprotocol/client, @anthropic-ai/sdk, vitest.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
